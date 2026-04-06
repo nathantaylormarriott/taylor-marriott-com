@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Taylor Marriott</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Source+Sans+3:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #0f0f0f;
+        --fg: #f2efe8;
+        --muted: #a39e94;
+        --accent: #c9a962;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 2rem;
+        font-family: "Source Sans 3", system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--fg);
+      }
+      main {
+        text-align: center;
+        max-width: 36rem;
+      }
+      h1 {
+        font-family: "Cormorant Garamond", Georgia, serif;
+        font-weight: 600;
+        font-size: clamp(2.25rem, 6vw, 3.25rem);
+        letter-spacing: 0.04em;
+        margin: 0 0 0.75rem;
+      }
+      p {
+        color: var(--muted);
+        line-height: 1.6;
+        margin: 0 0 2rem;
+        font-size: 1.05rem;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.85rem 1.75rem;
+        font-family: inherit;
+        font-size: 0.95rem;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        text-decoration: none;
+        color: var(--bg);
+        background: var(--accent);
+        border: none;
+        border-radius: 2px;
+        transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+      }
+      .btn:hover {
+        background: #d4b56e;
+        box-shadow: 0 8px 24px rgba(201, 169, 98, 0.25);
+        transform: translateY(-1px);
+      }
+      .btn:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 3px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Taylor Marriott</h1>
+      <p>Access shared files and project materials in the client portal.</p>
+      <a
+        class="btn"
+        href="https://drive.google.com/drive/folders/1ixR8yzR0UXW4CQYYOC4MmOD2YlrdKdzy?usp=sharing"
+        target="_blank"
+        rel="noopener noreferrer"
+        >Client portal</a
+      >
+    </main>
+  </body>
+</html>
