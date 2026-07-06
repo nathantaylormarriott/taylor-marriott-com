@@ -1127,6 +1127,22 @@ main {
   margin-bottom: 1.5rem;
 }
 @media (max-width: 768px) {
+  html.site-scroll-lock,
+  html.site-scroll-lock body,
+  html.overlay-open,
+  html.overlay-open body {
+    overflow: hidden;
+    overscroll-behavior: none;
+    height: 100%;
+  }
+  .contact-overlay {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+  .contact-lead {
+    display: none;
+  }
   .contact-inner {
     grid-template-columns: 1fr;
     gap: 2rem;

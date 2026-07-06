@@ -2,7 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useLayoutEffe
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import gsap from 'gsap';
 import { createScene } from '../lib/scene';
-import { CONFIG, SCENE_THEMES } from '../config';
+import { CONFIG, HOME_BELOW_HERO, SCENE_THEMES } from '../config';
 import { getGlassSurfaceCount, setGlassSceneApi } from '../lib/glassBackdropRegistry';
 import taylorMarriottWordmark from '../assets/taylor-marriott-wordmark.png';
 import ContactLink from '../components/ContactLink';
@@ -226,6 +226,15 @@ export default function Shell() {
     };
     document.title = overlayMode ? titles[overlayMode] : 'Taylor-Marriott — Design & Build';
   }, [overlayMode]);
+
+  useEffect(() => {
+    const lockHomeScroll = isMobile && !HOME_BELOW_HERO;
+    document.documentElement.classList.toggle('overlay-open', overlayOpen);
+    document.documentElement.classList.toggle('site-scroll-lock', lockHomeScroll && !overlayOpen);
+    return () => {
+      document.documentElement.classList.remove('overlay-open', 'site-scroll-lock');
+    };
+  }, [isMobile, overlayOpen]);
 
   useLayoutEffect(() => {
     if (!overlayMode) return;

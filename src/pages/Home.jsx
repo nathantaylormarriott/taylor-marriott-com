@@ -25,7 +25,7 @@ export default function Home() {
   }, [sceneApiRef]);
 
   useLayoutEffect(() => {
-    if (reduced) {
+    if (reduced || (isMobile && !HOME_BELOW_HERO)) {
       registerLenis(null);
       return;
     }
@@ -61,7 +61,7 @@ export default function Home() {
       lenisRef.current?.destroy();
       lenisRef.current = null;
     };
-  }, [reduced, sceneApiRef, registerLenis]);
+  }, [reduced, isMobile, sceneApiRef, registerLenis]);
 
   useLayoutEffect(() => {
     const refreshScroll = () => ScrollTrigger.refresh();
