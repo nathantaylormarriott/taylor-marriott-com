@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import Shell from './layout/Shell';
+import Contact from './pages/Contact';
 import Home from './pages/Home';
 
 export default function App() {
@@ -9,7 +10,7 @@ export default function App() {
       <Routes>
         <Route element={<Shell />}>
           <Route index element={<Home />} />
-          <Route path="contact" element={<Navigate to="/" replace state={{ openContact: true }} />} />
+          <Route path="contact" element={<Contact />} />
           <Route path="portal" element={<Navigate to="/" replace state={{ openPortal: true }} />} />
         </Route>
       </Routes>

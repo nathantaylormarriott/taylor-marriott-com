@@ -134,6 +134,7 @@ export default function Shell() {
   );
   const location = useLocation();
   const navigate = useNavigate();
+  const isContactRoute = location.pathname === '/contact';
 
   useEffect(() => {
     if (reduced || isMobile) return;
@@ -224,17 +225,30 @@ export default function Shell() {
       contact: 'Contact — Taylor-Marriott',
       portal: 'Client Portal — Taylor-Marriott',
     };
-    document.title = overlayMode ? titles[overlayMode] : 'Taylor-Marriott — Design & Build';
-  }, [overlayMode]);
+    if (overlayMode) {
+      document.title = titles[overlayMode];
+      return;
+    }
+    document.title = isContactRoute
+      ? 'Contact — Taylor-Marriott'
+      : 'Taylor-Marriott — Design & Build';
+  }, [overlayMode, isContactRoute]);
+
+  useEffect(() => {
+    if (overlayOpen) return;
+    const theme = isContactRoute ? SCENE_THEMES.contact.nebula : SCENE_THEMES.home.nebula;
+    sceneApiRef.current?.setNebula?.(theme);
+  }, [isContactRoute, overlayOpen]);
 
   useEffect(() => {
     const lockHomeScroll = isMobile && !HOME_BELOW_HERO;
     document.documentElement.classList.toggle('overlay-open', overlayOpen);
-    document.documentElement.classList.toggle('site-scroll-lock', lockHomeScroll && !overlayOpen);
+    document.documentElement.classList.toggle('contact-route', isContactRoute);
+    document.documentElement.classList.toggle('site-scroll-lock', lockHomeScroll && !overlayOpen && !isContactRoute);
     return () => {
-      document.documentElement.classList.remove('overlay-open', 'site-scroll-lock');
+      document.documentElement.classList.remove('overlay-open', 'contact-route', 'site-scroll-lock');
     };
-  }, [isMobile, overlayOpen]);
+  }, [isMobile, overlayOpen, isContactRoute]);
 
   useLayoutEffect(() => {
     if (!overlayMode) return;
@@ -372,13 +386,17 @@ export default function Shell() {
             <img src={taylorMarriottWordmark} alt="Taylor-Marriott" width={180} height={24} />
           </Link>
           <div className="site-head-actions">
-            {!overlayOpen && (
+            {!overlayOpen && !isContactRoute && (
               <PortalLink className="head-portal head-action">Client Portal</PortalLink>
             )}
             {overlayOpen ? (
               <button type="button" className="head-contact head-action" onClick={closeOverlay}>
                 Return
               </button>
+            ) : isContactRoute ? (
+              <Link to="/" className="head-contact head-action">
+                Home
+              </Link>
             ) : (
               <ContactLink className="head-contact head-action">Contact</ContactLink>
             )}

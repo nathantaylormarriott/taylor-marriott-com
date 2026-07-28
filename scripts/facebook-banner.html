@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    @font-face {
+      font-family: 'Matter';
+      src: url('../public/fonts/Matter-Regular.ttf') format('truetype');
+      font-weight: 400;
+    }
+    @font-face {
+      font-family: 'Matter';
+      src: url('../public/fonts/Matter-Medium.ttf') format('truetype');
+      font-weight: 500;
+    }
+    @font-face {
+      font-family: 'Geist Sans';
+      font-style: normal;
+      font-weight: 100 900;
+      src: url('https://cdn.jsdelivr.net/fontsource/fonts/geist-sans@latest/latin-wght-normal.woff2') format('woff2-variations');
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      width: 4920px;
+      height: 1872px;
+      overflow: hidden;
+      background: #050507;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      text-rendering: optimizeLegibility;
+    }
+
+    .banner {
+      position: relative;
+      width: 4920px;
+      height: 1872px;
+      background: #050507;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .banner__nebula::before {
+      content: '';
+      position: absolute;
+      width: 2160px;
+      height: 1440px;
+      top: -360px;
+      right: 240px;
+      background: radial-gradient(circle, rgba(255, 77, 157, 0.2) 0%, transparent 68%);
+      filter: blur(120px);
+    }
+
+    .banner__nebula::after {
+      content: '';
+      position: absolute;
+      width: 1860px;
+      height: 1260px;
+      bottom: -240px;
+      left: -120px;
+      background: radial-gradient(circle, rgba(70, 229, 255, 0.14) 0%, transparent 68%);
+      filter: blur(132px);
+    }
+
+    .banner__nebula {
+      position: absolute;
+      inset: 0;
+    }
+
+    .banner__inner {
+      position: relative;
+      z-index: 2;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 240px;
+    }
+
+    .banner__wordmark {
+      height: 102px;
+      width: auto;
+      mix-blend-mode: screen;
+      margin-bottom: 84px;
+      image-rendering: -webkit-optimize-contrast;
+    }
+
+    .banner__kicker {
+      font-family: 'Matter', sans-serif;
+      font-weight: 500;
+      font-size: 45px;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: rgba(70, 229, 255, 0.88);
+      margin-bottom: 42px;
+    }
+
+    .banner__phone {
+      font-family: 'Geist Sans', system-ui, sans-serif;
+      font-weight: 300;
+      font-size: 264px;
+      letter-spacing: -0.03em;
+      line-height: 1.05;
+      background: linear-gradient(to top right, #F8F8F7 0%, #E8E4D8 45%, #DCD5C2 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 48px;
+      white-space: nowrap;
+    }
+
+    .banner__tagline {
+      font-family: 'Geist Sans', system-ui, sans-serif;
+      font-weight: 300;
+      font-size: 84px;
+      letter-spacing: -0.02em;
+      line-height: 1.35;
+      color: rgba(232, 236, 245, 0.55);
+      margin-bottom: 66px;
+    }
+
+    .banner__services {
+      font-family: 'Matter', sans-serif;
+      font-weight: 400;
+      font-size: 42px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: rgba(232, 236, 245, 0.48);
+      max-width: 2760px;
+      line-height: 1.6;
+    }
+
+    .banner__location {
+      position: absolute;
+      bottom: 108px;
+      left: 0;
+      right: 0;
+      text-align: center;
+      font-family: 'Matter', sans-serif;
+      font-weight: 400;
+      font-size: 39px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: rgba(232, 236, 245, 0.42);
+    }
+
+    .banner__url {
+      position: absolute;
+      right: 156px;
+      bottom: 108px;
+      font-family: 'Matter', sans-serif;
+      font-weight: 400;
+      font-size: 39px;
+      letter-spacing: 0.16em;
+      color: rgba(232, 236, 245, 0.35);
+    }
+  </style>
+</head>
+<body>
+  <div class="banner">
+    <div class="banner__nebula" aria-hidden="true"></div>
+    <div class="banner__inner">
+      <img class="banner__wordmark" src="../src/assets/taylor-marriott-wordmark.png" alt="" width="3072" height="435" />
+      <p class="banner__kicker">Call or message</p>
+      <h1 class="banner__phone">+44 (0) 7831 798 112</h1>
+      <p class="banner__tagline">Digital product development · Web design</p>
+      <p class="banner__services">Web design · Web development · Digital products · UI / UX · App development</p>
+    </div>
+    <p class="banner__location">Birmingham, UK · Serving clients worldwide</p>
+    <p class="banner__url">taylor-marriott.com</p>
+  </div>
+</body>
+</html>

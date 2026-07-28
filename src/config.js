@@ -15,6 +15,21 @@ export const HOME_BELOW_HERO = false;
 
 export const CLIENT_PORTAL_URL = 'https://portal.taylor-marriott.com';
 
+/** Client portal gate — simple download unlock (not hardened auth). */
+export const PORTAL = {
+  username: 'guy',
+  password: 'esxbgt2026',
+  downloadUrl: '/downloads/ES-x-BGT.zip',
+  downloadName: 'ES x BGT.zip',
+};
+
+/** Public contact channels — update phone/whatsapp with your business numbers. */
+export const CONTACT = {
+  email: 'hello@taylor-marriott.com',
+  phone: '+447831798112',
+  whatsapp: '447831798112',
+};
+
 export const SCENE_THEMES = {
   home: {
     nebula: { colorA: '#FF4D9D', colorB: '#46E5FF', intensity: 0.38 },
