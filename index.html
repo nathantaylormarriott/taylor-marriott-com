@@ -3,44 +3,60 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Taylor-Marriott | Digital Product Development &amp; Web Design | Nuneaton, Coventry, Birmingham</title>
+    <title>Taylor-Marriott | Web Design, Digital Marketing &amp; Digital Infrastructure | Midlands UK</title>
     <meta
       name="description"
-      content="Taylor-Marriott is a digital product development and web design studio serving Nuneaton, Coventry, Birmingham, Atherstone, Leicester and the West Midlands. We design, build, and grow websites, apps, and digital products for ambitious brands."
+      content="Taylor-Marriott is a Midlands digital studio for web design, digital marketing, software development and digital infrastructure. We design, build and grow websites, apps and AI-powered digital products for brands across Nuneaton, Coventry, Birmingham, Leicester and the wider Midlands."
     />
     <meta
       name="keywords"
-      content="digital product development Nuneaton, web design Coventry, web design Birmingham, web design Leicester, web design Atherstone, website development West Midlands, UI UX design Warwickshire, app development Coventry, digital agency Nuneaton, Taylor-Marriott"
+      content="web design Midlands, digital marketing Midlands, digital infrastructure UK, website development West Midlands, web design Coventry, web design Birmingham, web design Leicester, web design Nuneaton, digital agency Midlands, UI UX design Warwickshire, software development Midlands, AI digital products, Taylor-Marriott"
     />
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
     <meta name="author" content="Taylor-Marriott Limited" />
+    <meta name="theme-color" content="#0a0a12" />
     <meta name="geo.region" content="GB-WAR" />
-    <meta name="geo.placename" content="Nuneaton" />
+    <meta name="geo.placename" content="Nuneaton, Warwickshire, West Midlands" />
     <meta name="geo.position" content="52.5234;-1.4652" />
     <meta name="ICBM" content="52.5234, -1.4652" />
-    <link rel="canonical" href="https://taylor-marriott.com/" />
+    <link rel="canonical" href="https://taylor-marriott.com/" id="seo-canonical" />
+
+    <link rel="preconnect" href="https://taylor-marriott.com" crossorigin />
+    <link rel="dns-prefetch" href="https://taylor-marriott.com" />
 
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Taylor-Marriott" />
     <meta property="og:locale" content="en_GB" />
-    <meta property="og:url" content="https://taylor-marriott.com/" />
+    <meta property="og:url" content="https://taylor-marriott.com/" id="seo-og-url" />
     <meta
       property="og:title"
-      content="Taylor-Marriott | Digital Product Development &amp; Web Design"
+      content="Taylor-Marriott | Web Design, Digital Marketing &amp; Digital Infrastructure | Midlands"
+      id="seo-og-title"
     />
     <meta
       property="og:description"
-      content="Digital product development and web design for brands in Nuneaton, Coventry, Birmingham, Atherstone, Leicester and across the West Midlands."
+      content="Midlands digital studio for web design, marketing, software development and digital infrastructure. Websites, apps and AI-built digital products for ambitious brands."
+      id="seo-og-description"
     />
+    <meta property="og:image" content="https://taylor-marriott.com/og-image.webp" />
+    <meta property="og:image:alt" content="Taylor-Marriott — web design, digital marketing and digital infrastructure studio serving the Midlands" />
+    <meta property="og:image:width" content="2880" />
+    <meta property="og:image:height" content="1800" />
 
-    <meta name="twitter:card" content="summary" />
-    <meta name="twitter:title" content="Taylor-Marriott | Digital Product Development &amp; Web Design" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Taylor-Marriott | Web Design &amp; Digital Marketing | Midlands" id="seo-twitter-title" />
     <meta
       name="twitter:description"
-      content="Digital product development and web design for brands in Nuneaton, Coventry, Birmingham, Atherstone, Leicester and across the West Midlands."
+      content="Midlands digital studio for web design, marketing, software development and digital infrastructure."
+      id="seo-twitter-description"
     />
+    <meta name="twitter:image" content="https://taylor-marriott.com/og-image.webp" />
+    <meta name="twitter:image:alt" content="Taylor-Marriott digital studio serving the Midlands UK" />
 
-    <script type="application/ld+json">
+    <link rel="alternate" type="text/plain" href="https://taylor-marriott.com/llms.txt" title="LLM site summary" />
+    <link rel="sitemap" type="application/xml" href="https://taylor-marriott.com/sitemap.xml" />
+
+    <script type="application/ld+json" id="seo-jsonld">
       {
         "@context": "https://schema.org",
         "@graph": [
@@ -49,55 +65,262 @@
             "@id": "https://taylor-marriott.com/#website",
             "url": "https://taylor-marriott.com/",
             "name": "Taylor-Marriott",
-            "description": "Digital product development and web design studio serving the West Midlands.",
+            "description": "Web design, digital marketing, software development and digital infrastructure studio serving the Midlands UK.",
             "inLanguage": "en-GB",
-            "publisher": { "@id": "https://taylor-marriott.com/#business" }
+            "publisher": { "@id": "https://taylor-marriott.com/#business" },
+            "potentialAction": {
+              "@type": "CommunicateAction",
+              "name": "Contact Taylor-Marriott",
+              "target": {
+                "@type": "EntryPoint",
+                "urlTemplate": "https://taylor-marriott.com/contact",
+                "actionPlatform": [
+                  "http://schema.org/DesktopWebPlatform",
+                  "http://schema.org/MobileWebPlatform"
+                ]
+              }
+            }
           },
           {
-            "@type": "ProfessionalService",
+            "@type": ["ProfessionalService", "Organization"],
             "@id": "https://taylor-marriott.com/#business",
             "name": "Taylor-Marriott",
             "legalName": "Taylor-Marriott Limited",
             "url": "https://taylor-marriott.com/",
-            "email": "mailto:hello@taylor-marriott.com",
-            "description": "Taylor-Marriott designs, builds, and grows digital products and websites for brands across Nuneaton, Coventry, Birmingham, Atherstone, Leicester and the wider West Midlands.",
+            "logo": "https://taylor-marriott.com/og-image.webp",
+            "image": "https://taylor-marriott.com/og-image.webp",
+            "email": "hello@taylor-marriott.com",
+            "telephone": "+447831798112",
+            "taxID": "17070186",
+            "foundingLocation": {
+              "@type": "Place",
+              "name": "Nuneaton, Warwickshire, United Kingdom"
+            },
+            "description": "Taylor-Marriott is a Midlands digital studio specialising in web design, digital marketing, software development and digital infrastructure. We design, build and grow websites, apps, platforms and AI-powered digital products for ambitious brands across the West Midlands, Warwickshire, Leicestershire and the wider Midlands.",
+            "slogan": "We design, build, and grow the digital products your brand deserves.",
             "areaServed": [
-              { "@type": "City", "name": "Nuneaton", "containedInPlace": { "@type": "AdministrativeArea", "name": "Warwickshire" } },
-              { "@type": "City", "name": "Coventry", "containedInPlace": { "@type": "AdministrativeArea", "name": "West Midlands" } },
-              { "@type": "City", "name": "Birmingham", "containedInPlace": { "@type": "AdministrativeArea", "name": "West Midlands" } },
-              { "@type": "City", "name": "Atherstone", "containedInPlace": { "@type": "AdministrativeArea", "name": "Warwickshire" } },
-              { "@type": "City", "name": "Leicester", "containedInPlace": { "@type": "AdministrativeArea", "name": "Leicestershire" } },
-              { "@type": "AdministrativeArea", "name": "West Midlands" }
+              { "@type": "AdministrativeArea", "name": "West Midlands" },
+              { "@type": "AdministrativeArea", "name": "East Midlands" },
+              { "@type": "AdministrativeArea", "name": "Warwickshire" },
+              { "@type": "AdministrativeArea", "name": "Leicestershire" },
+              { "@type": "City", "name": "Nuneaton" },
+              { "@type": "City", "name": "Coventry" },
+              { "@type": "City", "name": "Birmingham" },
+              { "@type": "City", "name": "Leicester" },
+              { "@type": "City", "name": "Nottingham" },
+              { "@type": "City", "name": "Derby" },
+              { "@type": "City", "name": "Wolverhampton" },
+              { "@type": "City", "name": "Rugby" },
+              { "@type": "City", "name": "Atherstone" },
+              { "@type": "City", "name": "Hinckley" },
+              { "@type": "City", "name": "Tamworth" },
+              { "@type": "Country", "name": "United Kingdom" }
             ],
             "serviceType": [
-              "Digital product development",
               "Web design",
-              "Web development",
+              "Website development",
+              "Digital marketing",
+              "Digital infrastructure",
+              "Digital product development",
+              "Software development",
               "UI design",
               "UX design",
               "Brand digital experiences",
-              "Website design"
+              "AI-powered digital products"
             ],
             "knowsAbout": [
-              "Digital product development",
               "Web design",
-              "Web development",
+              "Website development",
+              "Digital marketing",
+              "Digital infrastructure",
+              "Digital product development",
+              "Software development",
               "User experience design",
               "User interface design",
               "Responsive websites",
               "Brand websites",
-              "SaaS products"
+              "SaaS products",
+              "AI-assisted product development",
+              "Conversion-focused design",
+              "Performance optimisation",
+              "Headless CMS",
+              "E-commerce websites"
             ],
+            "hasOfferCatalog": {
+              "@type": "OfferCatalog",
+              "name": "Taylor-Marriott digital services",
+              "itemListElement": [
+                {
+                  "@type": "Offer",
+                  "itemOffered": {
+                    "@type": "Service",
+                    "name": "Web design & website development",
+                    "description": "Custom websites and web platforms for Midlands businesses — design-led, fast, accessible and built to convert.",
+                    "areaServed": "Midlands, United Kingdom"
+                  }
+                },
+                {
+                  "@type": "Offer",
+                  "itemOffered": {
+                    "@type": "Service",
+                    "name": "Digital marketing",
+                    "description": "Marketing websites, landing pages, brand storytelling and digital campaigns that help Midlands businesses grow online.",
+                    "areaServed": "Midlands, United Kingdom"
+                  }
+                },
+                {
+                  "@type": "Offer",
+                  "itemOffered": {
+                    "@type": "Service",
+                    "name": "Digital infrastructure",
+                    "description": "Reliable digital foundations — hosting architecture, integrations, APIs, automation and the technical backbone behind modern products.",
+                    "areaServed": "Midlands, United Kingdom"
+                  }
+                },
+                {
+                  "@type": "Offer",
+                  "itemOffered": {
+                    "@type": "Service",
+                    "name": "Software & digital product development",
+                    "description": "Apps, portals, SaaS tools and AI-built digital products — from prototype to production.",
+                    "areaServed": "Midlands, United Kingdom"
+                  }
+                }
+              ]
+            },
             "priceRange": "$$",
-            "availableLanguage": "en-GB"
+            "availableLanguage": ["en-GB", "English"]
+          },
+          {
+            "@type": "WebPage",
+            "@id": "https://taylor-marriott.com/#webpage",
+            "url": "https://taylor-marriott.com/",
+            "name": "Taylor-Marriott | Web Design, Digital Marketing & Digital Infrastructure | Midlands",
+            "description": "Midlands digital studio for web design, digital marketing, software development and digital infrastructure.",
+            "isPartOf": { "@id": "https://taylor-marriott.com/#website" },
+            "about": { "@id": "https://taylor-marriott.com/#business" },
+            "inLanguage": "en-GB"
+          },
+          {
+            "@type": "FAQPage",
+            "@id": "https://taylor-marriott.com/#faq",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "What services does Taylor-Marriott offer in the Midlands?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Taylor-Marriott offers web design, website development, digital marketing, digital infrastructure, software development and AI-powered digital product development for businesses across the Midlands, including Nuneaton, Coventry, Birmingham, Leicester and surrounding areas."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Where does Taylor-Marriott work?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Taylor-Marriott is based in the Midlands and serves clients across the West Midlands, East Midlands, Warwickshire and Leicestershire — including Nuneaton, Coventry, Birmingham, Leicester, Nottingham, Derby, Wolverhampton, Rugby, Hinckley and Tamworth. Remote delivery is available UK-wide and internationally."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Does Taylor-Marriott build more than websites?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes. In addition to marketing websites and web design, Taylor-Marriott builds digital products, client portals, SaaS tools, integrations and the digital infrastructure that supports them — using modern development practices and AI-assisted delivery where it adds speed and quality."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "How do I contact Taylor-Marriott?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Visit https://taylor-marriott.com/contact or email hello@taylor-marriott.com. Phone and WhatsApp are also available on the contact page."
+                }
+              }
+            ]
           }
         ]
       }
     </script>
 
+    <script>
+      (function () {
+        var ORIGIN = 'https://taylor-marriott.com';
+        var path = (location.pathname || '/').replace(/\/+$/, '') || '/';
+        var routes = {
+          '/contact': {
+            title: 'Contact Taylor-Marriott | Web Design & Digital Marketing | Midlands',
+            description:
+              'Contact Taylor-Marriott for web design, digital marketing, software development and digital infrastructure in the Midlands. Email hello@taylor-marriott.com or start a project conversation online.',
+            canonical: ORIGIN + '/contact',
+            jsonLd: {
+              '@type': 'ContactPage',
+              '@id': ORIGIN + '/contact#webpage',
+              url: ORIGIN + '/contact',
+              name: 'Contact Taylor-Marriott',
+              description:
+                'Get in touch with Taylor-Marriott for web design, digital marketing and digital infrastructure projects across the Midlands.',
+              isPartOf: { '@id': ORIGIN + '/#website' },
+              about: { '@id': ORIGIN + '/#business' },
+              inLanguage: 'en-GB'
+            }
+          }
+        };
+        var route = routes[path];
+        if (!route) return;
+
+        document.title = route.title;
+        function setMeta(selector, value, attr) {
+          var el = document.querySelector(selector);
+          if (el) el.setAttribute(attr || 'content', value);
+        }
+        setMeta('meta[name="description"]', route.description);
+        setMeta('#seo-canonical', route.canonical, 'href');
+        setMeta('#seo-og-url', route.canonical);
+        setMeta('#seo-og-title', route.title);
+        setMeta('#seo-og-description', route.description);
+        setMeta('#seo-twitter-title', route.title);
+        setMeta('#seo-twitter-description', route.description);
+
+        try {
+          var node = document.getElementById('seo-jsonld');
+          if (node && route.jsonLd) {
+            var graph = JSON.parse(node.textContent)['@graph'];
+            graph.push(route.jsonLd);
+            node.textContent = JSON.stringify({ '@context': 'https://schema.org', '@graph': graph });
+          }
+        } catch (e) {}
+      })();
+    </script>
+
     <link rel="icon" href="data:," />
   </head>
   <body>
+    <noscript>
+      <div style="max-width:42rem;margin:2rem auto;padding:0 1.25rem;font-family:system-ui,sans-serif;line-height:1.6;color:#111">
+        <h1>Taylor-Marriott — Web Design, Digital Marketing &amp; Digital Infrastructure | Midlands</h1>
+        <p>
+          Taylor-Marriott is a Midlands digital studio. We design, build and grow websites, apps,
+          marketing sites and the digital infrastructure behind modern products for ambitious brands.
+        </p>
+        <h2>Services</h2>
+        <ul>
+          <li>Web design and website development</li>
+          <li>Digital marketing and conversion-focused landing pages</li>
+          <li>Digital infrastructure, integrations and APIs</li>
+          <li>Software development and AI-powered digital products</li>
+        </ul>
+        <h2>Areas we serve</h2>
+        <p>
+          Nuneaton, Coventry, Birmingham, Leicester, Nottingham, Derby, Wolverhampton, Rugby,
+          Atherstone, Hinckley, Tamworth and the wider West Midlands, Warwickshire and Leicestershire.
+        </p>
+        <p>
+          <a href="/contact">Contact Taylor-Marriott</a> ·
+          <a href="mailto:hello@taylor-marriott.com">hello@taylor-marriott.com</a>
+        </p>
+      </div>
+    </noscript>
     <form name="contact" netlify netlify-honeypot="bot-field" hidden>
       <input type="text" name="name" />
       <input type="email" name="email" />

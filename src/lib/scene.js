@@ -121,6 +121,7 @@ export function createScene({ canvas, config, isMobile, reduced }) {
       uIntensity: { value: config.nebula.intensity },
       uNebulaRot: { value: isMobile ? 1.0 : 0.0 },
       uNebulaZoom: { value: isMobile ? 1.45 : 1.0 },
+      uIdleZoom: { value: 1.0 },
       uTransitionZoom: { value: 1.0 },
       uNebulaAnimFrozen: { value: 0.0 },
       uNebulaFrozenTimeOffset: { value: new THREE.Vector2() },
@@ -142,6 +143,7 @@ export function createScene({ canvas, config, isMobile, reduced }) {
       uniform float uIntensity;
       uniform float uNebulaRot;
       uniform float uNebulaZoom;
+      uniform float uIdleZoom;
       uniform float uTransitionZoom;
       uniform float uNebulaAnimFrozen;
       uniform vec2 uNebulaFrozenTimeOffset;
@@ -171,7 +173,7 @@ export function createScene({ canvas, config, isMobile, reduced }) {
         float c = cos(rot);
         float s = sin(rot);
         uv = vec2(c * uv.x - s * uv.y, s * uv.x + c * uv.y);
-        uv = uv / (uNebulaZoom * uTransitionZoom) + 0.5;
+        uv = uv / (uNebulaZoom * uIdleZoom * uTransitionZoom) + 0.5;
         vec2 timeOffset = uNebulaAnimFrozen > 0.5
           ? uNebulaFrozenTimeOffset
           : vec2(uTime * 0.012, uTime * -0.008);
@@ -264,6 +266,14 @@ export function createScene({ canvas, config, isMobile, reduced }) {
   const DRIFT_PY_AMP = 0.18;
   const DRIFT_PX_FREQ = 0.14;
   const DRIFT_PY_FREQ = 0.095;
+  const IDLE_SCROLL_RATE = 9;
+  const IDLE_ZOOM_RATE = 0.0022;
+  const POINTER_PX_SCALE = 9;
+  const POINTER_PY_SCALE = 5.2;
+
+  let lastRenderTime = 0;
+  let idleScroll = 0;
+  let idleZoom = 1;
 
   function applyNebulaUniforms() {
     starMat.uniforms.uTintA.value.copy(nebulaCurrent.colorA);
@@ -279,11 +289,19 @@ export function createScene({ canvas, config, isMobile, reduced }) {
   const afterRenderHooks = [];
 
   function render(time) {
+    const frozen = nebulaMat.uniforms.uNebulaAnimFrozen.value > 0.5;
+    if (!reduced && !frozen && lastRenderTime > 0) {
+      const dt = Math.min(time - lastRenderTime, 0.05);
+      idleScroll += IDLE_SCROLL_RATE * dt;
+      idleZoom += IDLE_ZOOM_RATE * dt;
+    }
+    lastRenderTime = time;
+
     current.scroll = lerp(current.scroll, target.scroll, 0.1);
     current.focal = lerp(current.focal, target.focal, 0.09);
     current.fov = lerp(current.fov, target.fov, 0.07);
-    current.px = lerp(current.px, target.px, 0.045);
-    current.py = lerp(current.py, target.py, 0.045);
+    current.px = lerp(current.px, target.px, 0.055);
+    current.py = lerp(current.py, target.py, 0.055);
 
     nebulaCurrent.colorA.lerp(nebulaTarget.colorA, 0.045);
     nebulaCurrent.colorB.lerp(nebulaTarget.colorB, 0.045);
@@ -292,9 +310,10 @@ export function createScene({ canvas, config, isMobile, reduced }) {
 
     const t = reduced ? 0 : time;
     starMat.uniforms.uTime.value = t;
-    starMat.uniforms.uScroll.value = current.scroll;
+    starMat.uniforms.uScroll.value = current.scroll + idleScroll;
     nebulaMat.uniforms.uTime.value = t;
-    nebulaMat.uniforms.uScroll.value = current.scroll;
+    nebulaMat.uniforms.uScroll.value = current.scroll + idleScroll;
+    nebulaMat.uniforms.uIdleZoom.value = idleZoom;
     focalMat.uniforms.uTime.value = t;
     focalMat.uniforms.uFocal.value = current.focal;
     focal.visible = current.focal > 0.01;
@@ -303,8 +322,8 @@ export function createScene({ canvas, config, isMobile, reduced }) {
     if (!reduced && !viewLocked) {
       const autoPx = Math.sin(t * DRIFT_PX_FREQ) * DRIFT_PX_AMP;
       const autoPy = Math.sin(t * DRIFT_PY_FREQ + 1.4) * DRIFT_PY_AMP;
-      camera.position.x = (current.px + autoPx) * 6;
-      camera.position.y = (current.py + autoPy) * -3.5;
+      camera.position.x = (current.px + autoPx) * POINTER_PX_SCALE;
+      camera.position.y = (current.py + autoPy) * -POINTER_PY_SCALE;
     } else {
       camera.position.x = 0;
       camera.position.y = 0;
@@ -332,8 +351,8 @@ export function createScene({ canvas, config, isMobile, reduced }) {
     setScrollImmediate: (v) => {
       target.scroll = v;
       current.scroll = v;
-      starMat.uniforms.uScroll.value = v;
-      nebulaMat.uniforms.uScroll.value = v;
+      starMat.uniforms.uScroll.value = v + idleScroll;
+      nebulaMat.uniforms.uScroll.value = v + idleScroll;
     },
     setFocal: (v) => { target.focal = v; },
     setFov: (v) => { target.fov = v; },

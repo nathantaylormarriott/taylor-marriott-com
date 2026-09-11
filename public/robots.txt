@@ -1,4 +1,40 @@
+# Taylor-Marriott — https://taylor-marriott.com
+
 User-agent: *
 Allow: /
+Disallow: /admin
+Disallow: /ops
+
+# AI crawlers — welcome to public marketing pages
+User-agent: GPTBot
+Allow: /
+Disallow: /admin
+Disallow: /ops
+
+User-agent: ChatGPT-User
+Allow: /
+Disallow: /admin
+Disallow: /ops
+
+User-agent: Claude-Web
+Allow: /
+Disallow: /admin
+Disallow: /ops
+
+User-agent: anthropic-ai
+Allow: /
+Disallow: /admin
+Disallow: /ops
+
+User-agent: PerplexityBot
+Allow: /
+Disallow: /admin
+Disallow: /ops
+
+User-agent: Google-Extended
+Allow: /
+
+# LLM-readable site summary
+# https://taylor-marriott.com/llms.txt
 
 Sitemap: https://taylor-marriott.com/sitemap.xml

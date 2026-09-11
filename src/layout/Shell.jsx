@@ -9,6 +9,7 @@ import ContactLink from '../components/ContactLink';
 import ContactPanel from '../components/ContactPanel';
 import PortalLink from '../components/PortalLink';
 import PortalLoginPanel from '../components/PortalLoginPanel';
+import NavProgressiveBlur from '../components/NavProgressiveBlur';
 
 const ShellContext = createContext(null);
 
@@ -135,6 +136,7 @@ export default function Shell() {
   const location = useLocation();
   const navigate = useNavigate();
   const isContactRoute = location.pathname === '/contact';
+  const isAdminRoute = location.pathname === '/admin' || location.pathname === '/ops';
 
   useEffect(() => {
     if (reduced || isMobile) return;
@@ -229,26 +231,30 @@ export default function Shell() {
       document.title = titles[overlayMode];
       return;
     }
+    if (isAdminRoute) {
+      document.title = 'Admin — Taylor-Marriott';
+      return;
+    }
     document.title = isContactRoute
       ? 'Contact — Taylor-Marriott'
       : 'Taylor-Marriott — Design & Build';
-  }, [overlayMode, isContactRoute]);
+  }, [overlayMode, isContactRoute, isAdminRoute]);
 
   useEffect(() => {
     if (overlayOpen) return;
-    const theme = isContactRoute ? SCENE_THEMES.contact.nebula : SCENE_THEMES.home.nebula;
+    const theme = (isContactRoute || isAdminRoute) ? SCENE_THEMES.contact.nebula : SCENE_THEMES.home.nebula;
     sceneApiRef.current?.setNebula?.(theme);
-  }, [isContactRoute, overlayOpen]);
+  }, [isContactRoute, isAdminRoute, overlayOpen]);
 
   useEffect(() => {
     const lockHomeScroll = isMobile && !HOME_BELOW_HERO;
     document.documentElement.classList.toggle('overlay-open', overlayOpen);
-    document.documentElement.classList.toggle('contact-route', isContactRoute);
-    document.documentElement.classList.toggle('site-scroll-lock', lockHomeScroll && !overlayOpen && !isContactRoute);
+    document.documentElement.classList.toggle('contact-route', isContactRoute || isAdminRoute);
+    document.documentElement.classList.toggle('site-scroll-lock', lockHomeScroll && !overlayOpen && !isContactRoute && !isAdminRoute);
     return () => {
       document.documentElement.classList.remove('overlay-open', 'contact-route', 'site-scroll-lock');
     };
-  }, [isMobile, overlayOpen, isContactRoute]);
+  }, [isMobile, overlayOpen, isContactRoute, isAdminRoute]);
 
   useLayoutEffect(() => {
     if (!overlayMode) return;
@@ -371,6 +377,7 @@ export default function Shell() {
     <ShellContext.Provider value={value}>
       <div ref={containerRef}>
         <canvas ref={canvasRef} id="webgl" aria-hidden="true"></canvas>
+        <NavProgressiveBlur />
 
         <header className="site-head">
           <Link
@@ -386,14 +393,14 @@ export default function Shell() {
             <img src={taylorMarriottWordmark} alt="Taylor-Marriott" width={180} height={24} />
           </Link>
           <div className="site-head-actions">
-            {!overlayOpen && !isContactRoute && (
+            {!overlayOpen && !isContactRoute && !isAdminRoute && (
               <PortalLink className="head-portal head-action">Client Portal</PortalLink>
             )}
             {overlayOpen ? (
               <button type="button" className="head-contact head-action" onClick={closeOverlay}>
                 Return
               </button>
-            ) : isContactRoute ? (
+            ) : isContactRoute || isAdminRoute ? (
               <Link to="/" className="head-contact head-action">
                 Home
               </Link>

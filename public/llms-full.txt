@@ -1,0 +1,100 @@
+# Taylor-Marriott — full site context for AI systems
+
+## Entity
+
+- Name: Taylor-Marriott (Taylor-Marriott Limited)
+- Type: Digital studio / professional services
+- Company number: 17070186 (England & Wales)
+- Website: https://taylor-marriott.com/
+- Email: hello@taylor-marriott.com
+- Phone: +44 7831 798112
+- Client portal: https://portal.taylor-marriott.com/
+
+## Positioning
+
+Taylor-Marriott is a Midlands-based digital studio. The studio designs, builds and grows digital products — not just brochure websites. Work spans marketing sites, brand experiences, software products, client portals and the digital infrastructure that supports them.
+
+Tagline: "We design, build, and grow the digital products your brand deserves."
+
+## Services (detailed)
+
+### Web design & website development
+Custom websites for Midlands businesses and national brands. Design-led, performance-focused, accessible and built to convert. Includes marketing sites, portfolio sites, multi-page brand sites and campaign landing pages.
+
+### Digital marketing
+Digital presence that supports growth: messaging, landing pages, campaign pages, SEO-friendly site architecture and conversion-focused design. Suitable for businesses investing in inbound marketing across the Midlands.
+
+### Digital infrastructure
+Technical foundations for digital products: integrations, APIs, automation, hosting architecture, deployment pipelines and the connective tissue between marketing sites, apps and back-office systems.
+
+### Software & digital product development
+Bespoke software, client portals, internal tools, SaaS products and AI-assisted digital product builds. The studio uses modern development practices and can move from prototype to production efficiently.
+
+### UI/UX design
+User interface and experience design for websites and digital products.
+
+## Technology & delivery
+
+- Modern web stack (React, Vite, component-driven front ends)
+- Netlify and cloud-native deployment patterns
+- AI-assisted development for faster delivery without sacrificing quality
+- Performance, accessibility and mobile-first design
+
+## Geographic service area
+
+Headline region: **The Midlands, United Kingdom**
+
+Cities and areas commonly served:
+- Nuneaton (Warwickshire)
+- Coventry (West Midlands)
+- Birmingham (West Midlands)
+- Leicester (Leicestershire)
+- Nottingham (East Midlands)
+- Derby (East Midlands)
+- Wolverhampton (West Midlands)
+- Rugby, Atherstone (Warwickshire)
+- Hinckley (Leicestershire)
+- Tamworth (Staffordshire / West Midlands border)
+
+Also works with clients across the UK, US, Canada and EU remotely.
+
+## Public pages
+
+| Page | URL | Purpose |
+|------|-----|---------|
+| Home | https://taylor-marriott.com/ | Studio overview and primary entry point |
+| Contact | https://taylor-marriott.com/contact | Enquiries, email, phone, WhatsApp, contact form |
+
+## Example project types
+
+- Restaurant and retail brand websites
+- Professional services and consultancy sites
+- Non-profit and community organisation websites
+- Portfolio and personal brand sites
+- Client portals and download areas
+- Product landing pages for inbound marketing
+
+## Frequently asked questions
+
+**What does Taylor-Marriott do?**
+Web design, digital marketing, digital infrastructure and software/digital product development for Midlands and UK businesses.
+
+**Is Taylor-Marriott only for large companies?**
+No. The studio works with ambitious brands of different sizes — from local Midlands businesses to national and international clients.
+
+**Does Taylor-Marriott do marketing as well as development?**
+Yes. Services include both marketing-focused website work and deeper software/infrastructure builds.
+
+**How do I get a quote?**
+Use https://taylor-marriott.com/contact or email hello@taylor-marriott.com with a short project brief.
+
+## Machine-readable resources
+
+- Sitemap: https://taylor-marriott.com/sitemap.xml
+- Robots: https://taylor-marriott.com/robots.txt
+- LLM summary: https://taylor-marriott.com/llms.txt
+- Open Graph image: https://taylor-marriott.com/og-image.webp
+
+## Last updated
+
+2026-08-27

@@ -1,14 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset
+  xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+  xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"
+>
   <url>
     <loc>https://taylor-marriott.com/</loc>
-    <lastmod>2026-07-12</lastmod>
-    <changefreq>monthly</changefreq>
+    <lastmod>2026-09-11</lastmod>
+    <changefreq>weekly</changefreq>
     <priority>1.0</priority>
+    <image:image>
+      <image:loc>https://taylor-marriott.com/og-image.webp</image:loc>
+      <image:title>Taylor-Marriott — web design, digital marketing and digital infrastructure in the Midlands</image:title>
+      <image:caption>Midlands digital studio for web design, marketing, software and digital infrastructure</image:caption>
+    </image:image>
   </url>
   <url>
     <loc>https://taylor-marriott.com/contact</loc>
-    <lastmod>2026-07-27</lastmod>
+    <lastmod>2026-09-11</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
   </url>
