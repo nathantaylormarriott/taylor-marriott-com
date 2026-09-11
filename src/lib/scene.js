@@ -266,8 +266,8 @@ export function createScene({ canvas, config, isMobile, reduced }) {
   const DRIFT_PY_AMP = 0.18;
   const DRIFT_PX_FREQ = 0.14;
   const DRIFT_PY_FREQ = 0.095;
-  const IDLE_SCROLL_RATE = 9;
-  const IDLE_ZOOM_RATE = 0.0022;
+  const IDLE_SCROLL_RATE = 5.5;
+  const IDLE_ZOOM_RATE = 0.0015;
   const POINTER_PX_SCALE = 9;
   const POINTER_PY_SCALE = 5.2;
 
