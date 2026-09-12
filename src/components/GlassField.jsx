@@ -12,24 +12,31 @@ export default function GlassField({
   multiline = false,
   rows,
   placeholder,
+  form,
 }) {
   const InputTag = multiline ? 'textarea' : 'input';
+  const fieldPlaceholder = placeholder ?? (optional ? `${label} (optional)` : label);
 
   return (
     <div className={`contact-field${wobble ? ' contact-field--wobble' : ''}`}>
-      <label className="contact-label mono" htmlFor={id}>
+      <label className="contact-label contact-label--sr-only" htmlFor={id}>
         {label}
-        {optional && <span className="contact-optional"> (optional)</span>}
+        {optional && ' (optional)'}
       </label>
-      <GlassSurface variant="field" className="glass-surface--input">
+      <GlassSurface
+        variant="field"
+        className={`glass-surface--input contact-form-item${multiline ? ' glass-surface--textarea' : ''}`}
+      >
         <InputTag
           id={id}
           className={`glass-surface__content contact-input${multiline ? ' contact-textarea' : ''}`}
           type={multiline ? undefined : type}
           name={name}
+          form={form}
           autoComplete={autoComplete}
           rows={rows}
-          placeholder={placeholder}
+          placeholder={fieldPlaceholder}
+          aria-label={label}
         />
       </GlassSurface>
     </div>

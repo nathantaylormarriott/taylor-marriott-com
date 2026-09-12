@@ -3,6 +3,7 @@ import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import Lenis from 'lenis';
 import { CONFIG, HOME_BELOW_HERO } from '../config';
+import { revealHeroTitle } from '../lib/heroReveal';
 import { useShell } from '../layout/Shell';
 import ContactLink from '../components/ContactLink';
 import {
@@ -17,6 +18,7 @@ gsap.registerPlugin(ScrollTrigger);
 
 export default function Home() {
   const { containerRef, sceneApiRef, isMobile, reduced, registerLenis } = useShell();
+  const mainRef = useRef(null);
   const lenisRef = useRef(null);
 
   useLayoutEffect(() => {
@@ -75,31 +77,53 @@ export default function Home() {
     };
     const onLoad = () => { refreshScroll(); syncFooterHeight(); };
 
+    let entranceFrame = 0;
+    let heroFallbackTimer = 0;
+
     const ctx = gsap.context(() => {
       gsap.defaults({ ease: CONFIG.ease });
 
-      // -- Hero entrance
-      gsap.set(['.logo', '.head-action'], { autoAlpha: 0 });
-      gsap.set('.hero-title .split-word', { autoAlpha: 0 });
+      const runHeroEntrance = () => {
+        const root = mainRef.current;
+        const heroWords = root?.querySelectorAll('.hero-title .split-word');
+        const headEls = containerRef.current?.querySelectorAll('.logo, .head-action');
+        if (!heroWords?.length) {
+          revealHeroTitle(root);
+          return;
+        }
 
-      const heroEntrance = gsap.timeline();
-      if (reduced) {
-        heroEntrance
-          .from(['.logo', '.head-action'], { autoAlpha: 0, duration: 1.6 }, 0)
-          .to('.hero-title .split-word', { autoAlpha: 1, duration: 1.2 }, 0);
-      } else {
-        heroEntrance
-          .fromTo(['.logo', '.head-action'],
-            { autoAlpha: 0, y: 14, filter: 'blur(6px)' },
-            { autoAlpha: 1, y: 0, filter: 'blur(0px)', duration: 2.8, ease: CONFIG.easeLong },
-            0
-          )
-          .fromTo('.hero-title .split-word',
-            { autoAlpha: 0, y: 22, filter: 'blur(8px)' },
-            { autoAlpha: 1, y: 0, filter: 'blur(0px)', duration: 1.8, ease: CONFIG.easeLong, stagger: { each: 0.14, from: 'start' } },
-            0
-          );
-      }
+        gsap.set(headEls, { autoAlpha: 0 });
+        gsap.set(heroWords, { autoAlpha: 0 });
+
+        const finishHeroEntrance = () => {
+          window.clearTimeout(heroFallbackTimer);
+          revealHeroTitle(root);
+        };
+
+        const heroEntrance = gsap.timeline({ onComplete: finishHeroEntrance });
+        if (reduced) {
+          heroEntrance
+            .from(headEls, { autoAlpha: 0, duration: 1.6 }, 0)
+            .to(heroWords, { autoAlpha: 1, duration: 1.2 }, 0);
+        } else {
+          heroEntrance
+            .fromTo(headEls,
+              { autoAlpha: 0, y: -14, filter: 'blur(6px)' },
+              { autoAlpha: 1, y: 0, filter: 'blur(0px)', duration: 2.8, ease: CONFIG.easeLong },
+              0
+            )
+            .fromTo(heroWords,
+              { autoAlpha: 0, y: 22, filter: 'blur(8px)' },
+              { autoAlpha: 1, y: 0, filter: 'blur(0px)', duration: 1.8, ease: CONFIG.easeLong, stagger: { each: 0.14, from: 'start' } },
+              0
+            );
+        }
+
+        heroFallbackTimer = window.setTimeout(finishHeroEntrance, 3200);
+      };
+
+      entranceFrame = requestAnimationFrame(runHeroEntrance);
+
       requestAnimationFrame(() => {
         syncFooterHeight();
         ScrollTrigger.refresh(true);
@@ -215,17 +239,29 @@ export default function Home() {
       ScrollTrigger.refresh();
       window.addEventListener('load', onLoad);
 
-    }, containerRef);
+    }, mainRef);
     return () => {
+      cancelAnimationFrame(entranceFrame);
+      window.clearTimeout(heroFallbackTimer);
       window.removeEventListener('resize', syncFooterHeight);
       window.removeEventListener('load', onLoad);
       ctx.revert();
+      revealHeroTitle(mainRef.current);
+      gsap.set(containerRef.current?.querySelectorAll('.logo, .head-action'), {
+        autoAlpha: 1,
+        opacity: 1,
+        visibility: 'visible',
+        y: 0,
+        filter: 'none',
+        pointerEvents: 'auto',
+        clearProps: 'transform,filter',
+      });
     };
   }, [reduced, isMobile, sceneApiRef, containerRef]);
 
   return (
     <>
-      <main>
+      <main ref={mainRef}>
         <section className="hero" id="hero">
           <div className="hero-inner">
             <h1 className="hero-title">

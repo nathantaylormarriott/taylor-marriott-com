@@ -3,12 +3,12 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import gsap from 'gsap';
 import { createScene } from '../lib/scene';
 import { CONFIG, HOME_BELOW_HERO, QURAN_ENABLED, SCENE_THEMES } from '../config';
-import { getGlassSurfaceCount, setGlassSceneApi } from '../lib/glassBackdropRegistry';
+import { hasLiquidGlassRoots } from '../lib/liquidGlassManager';
+import { hasNavBlur, setNavBlurSceneApi } from '../lib/navBlurRegistry';
+import { hasSceneRefractCanvases, setSceneRefractApi } from '../lib/sceneRefractRegistry';
 import taylorMarriottWordmark from '../assets/taylor-marriott-wordmark.png';
 import ContactLink from '../components/ContactLink';
 import ContactPanel from '../components/ContactPanel';
-import PortalLink from '../components/PortalLink';
-import PortalLoginPanel from '../components/PortalLoginPanel';
 import NavProgressiveBlur from '../components/NavProgressiveBlur';
 import QuranToggle from '../components/QuranToggle';
 
@@ -50,7 +50,7 @@ function revealHomeContent() {
 
 function resetOverlayPanelVisibility() {
   gsap.killTweensOf('.contact-inner, .contact-inner *');
-  gsap.set(['.contact-inner > *', '.contact-intro-copy', '.contact-main', '.contact-form', '.portal-login-form > *'], {
+  gsap.set(['.contact-inner > *', '.contact-intro-copy', '.contact-main', '.contact-form'], {
     autoAlpha: 1,
     opacity: 1,
     visibility: 'visible',
@@ -69,7 +69,7 @@ function showOverlayPanel() {
   gsap.set('.contact-overlay', { autoAlpha: 1, visibility: 'visible', pointerEvents: 'auto' });
   hidePageContentForOverlay();
   resetOverlayPanelVisibility();
-  gsap.from('.contact-inner > *, .portal-login-form > *', {
+  gsap.from('.contact-inner > *', {
     autoAlpha: 0,
     duration: 0.6,
     stagger: 0.06,
@@ -78,8 +78,8 @@ function showOverlayPanel() {
 }
 
 function hideOverlayPanel(onComplete) {
-  gsap.killTweensOf('.contact-inner, .contact-inner *, .portal-login-form, .portal-login-form > *');
-  gsap.to('.contact-inner > *, .portal-login-form > *', {
+  gsap.killTweensOf('.contact-inner, .contact-inner *');
+  gsap.to('.contact-inner > *', {
     autoAlpha: 0,
     duration: 0.35,
     stagger: 0.04,
@@ -168,7 +168,8 @@ export default function Shell() {
         reduced,
       });
       sceneApiRef.current.render(0);
-      setGlassSceneApi(sceneApiRef);
+      setNavBlurSceneApi(sceneApiRef);
+      setSceneRefractApi(sceneApiRef);
     } catch (err) {
       console.warn('[Taylor-Marriott] WebGL unavailable', err);
       sceneApiRef.current = {
@@ -192,7 +193,8 @@ export default function Shell() {
         dispose: () => {},
       };
       canvasRef.current.style.display = 'none';
-      setGlassSceneApi(sceneApiRef);
+      setNavBlurSceneApi(sceneApiRef);
+      setSceneRefractApi(sceneApiRef);
     }
 
     gsap.set('.contact-overlay', { autoAlpha: 0, visibility: 'hidden', pointerEvents: 'none' });
@@ -203,7 +205,9 @@ export default function Shell() {
       if (!pageVisibleRef.current) return;
 
       const needsFullRate =
-        getGlassSurfaceCount() > 0 ||
+        hasNavBlur() ||
+        hasLiquidGlassRoots() ||
+        hasSceneRefractCanvases() ||
         transitioningRef.current ||
         overlayOpenRef.current;
 
@@ -227,7 +231,6 @@ export default function Shell() {
   useEffect(() => {
     const titles = {
       contact: 'Contact — Taylor-Marriott',
-      portal: 'Client Portal — Taylor-Marriott',
     };
     if (overlayMode) {
       document.title = titles[overlayMode];
@@ -324,7 +327,6 @@ export default function Shell() {
   }, [overlayOpen, reduced]);
 
   const openContact = useCallback(() => openOverlay('contact'), [openOverlay]);
-  const openPortal = useCallback(() => openOverlay('portal'), [openOverlay]);
 
   const closeOverlay = useCallback(() => {
     if (transitioningRef.current || !overlayOpen) return;
@@ -357,15 +359,10 @@ export default function Shell() {
   }, [overlayOpen, reduced]);
 
   useLayoutEffect(() => {
-    const mode = location.state?.openContact
-      ? 'contact'
-      : location.state?.openPortal
-        ? 'portal'
-        : null;
-    if (!mode || overlayOpen || transitioningRef.current) return;
+    if (!location.state?.openContact || overlayOpen || transitioningRef.current) return;
 
     navigate('.', { replace: true, state: null });
-    openOverlay(mode);
+    openOverlay('contact');
   }, [location.state, overlayOpen, navigate, openOverlay]);
 
   const value = {
@@ -378,7 +375,6 @@ export default function Shell() {
     overlayOpen,
     contactOpen: overlayMode === 'contact',
     openContact,
-    openPortal,
     closeOverlay,
     closeContact: closeOverlay,
   };
@@ -403,9 +399,6 @@ export default function Shell() {
             <img src={taylorMarriottWordmark} alt="Taylor-Marriott" width={180} height={24} />
           </Link>
           <div className="site-head-actions">
-            {!overlayOpen && !isContactRoute && !isForMuslimsRoute && !isAdminRoute && (
-              <PortalLink className="head-portal head-action">Client Portal</PortalLink>
-            )}
             {overlayOpen ? (
               <button type="button" className="head-contact head-action" onClick={closeOverlay}>
                 Return
@@ -429,12 +422,8 @@ export default function Shell() {
           <Outlet />
         </div>
 
-        <div
-          className={`contact-overlay${overlayMode === 'portal' ? ' contact-overlay--portal' : ''}`}
-          aria-hidden={!overlayOpen}
-        >
+        <div className="contact-overlay" aria-hidden={!overlayOpen}>
           {overlayMode === 'contact' && <ContactPanel key={overlaySession} onClose={closeOverlay} />}
-          {overlayMode === 'portal' && <PortalLoginPanel key={overlaySession} />}
         </div>
       </div>
     </ShellContext.Provider>

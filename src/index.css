@@ -208,37 +208,46 @@ main {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 0.55rem;
+  padding: 0;
+  border: none;
+  background: none;
   color: var(--star);
-  border-radius: 999px;
-  padding: 0.82rem 1rem;
-  background: rgba(31, 157, 106, 0.22);
-  border: 1px solid rgba(212, 175, 55, 0.35);
-  -webkit-backdrop-filter: blur(12px) saturate(1.4);
-  backdrop-filter: blur(12px) saturate(1.4);
   cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  transition: color 0.2s ease;
 }
 .head-quran:hover {
-  background: rgba(31, 157, 106, 0.34);
-  border-color: rgba(212, 175, 55, 0.55);
   color: #fff;
+}
+.head-quran__label {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  line-height: 1;
 }
 .audio-wave {
   display: block;
-  width: 1.65rem;
-  height: 0.55rem;
-  overflow: visible;
+  width: 1.5rem;
+  height: 0.78rem;
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    #000 24%,
+    #000 76%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    #000 24%,
+    #000 76%,
+    transparent 100%
+  );
 }
 .audio-wave-path {
-  opacity: 0.88;
-}
-.audio-wave.is-active .audio-wave-osc {
-  transform-origin: 16px 5px;
-  animation: audio-wave-oscillate 0.9s ease-in-out infinite;
-}
-@keyframes audio-wave-oscillate {
-  0%, 100% { transform: scaleY(0.22); }
-  50% { transform: scaleY(1); }
+  opacity: 0.9;
 }
 /* ---------- Hero ---------- */
 .hero {
@@ -1299,13 +1308,13 @@ main {
   flex-direction: column;
   gap: 0.7rem;
 }
-.contact-hub__action.glass-surface--pill {
+.contact-hub__action {
   display: flex;
   align-items: center;
   width: 100%;
-  min-height: 3.35rem;
   padding: 0;
-  border-radius: 14px;
+  border: none;
+  background: none;
   text-decoration: none;
   color: var(--star);
   cursor: pointer;
@@ -1316,7 +1325,7 @@ main {
   align-items: center;
   gap: 0.75rem;
   width: 100%;
-  padding: 0.85rem 1.15rem;
+  padding: 0.55rem 0;
 }
 button.contact-hub__action {
   border: none;
@@ -1689,23 +1698,44 @@ html.contact-route .ops-page {
     width: min(100%, 26rem);
     gap: 2rem;
   }
-  .contact-hub__action.glass-surface--pill {
-    min-height: 3.5rem;
-    padding: 0.95rem 1.25rem;
-  }
 }
 /* ---------- For Muslims ---------- */
-.for-muslims-route .hero-inner {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1.35rem;
-}
-.for-muslims-route .closing-btn {
-  margin-top: 0.5rem;
-}
 .for-muslims-route .hero {
+  position: relative;
+  display: block;
+  min-height: 100dvh;
   padding-bottom: calc(var(--page-pad-y) + 4.5rem);
+}
+.for-muslims-route .hero-title-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--page-pad-x);
+  text-align: center;
+  pointer-events: none;
+}
+.for-muslims-route .hero-title-center .hero-title {
+  pointer-events: auto;
+}
+.for-muslims-route .head-contact {
+  background: none;
+  color: var(--star);
+  border-radius: 0;
+  padding: 0;
+  font-size: 0.72rem;
+}
+.for-muslims-route .head-quran__label {
+  font-size: 0.72rem;
+}
+.for-muslims-route .head-quran .audio-wave {
+  width: 1.7rem;
+  height: 0.88rem;
+}
+.for-muslims-route .head-contact:hover {
+  background: none;
+  color: #fff;
 }
 .for-muslims-foot {
   position: fixed;
@@ -1725,19 +1755,9 @@ html.contact-route .ops-page {
   justify-content: center;
   text-decoration: none;
   color: var(--star);
-  border-radius: 999px;
-  padding: 0.58rem 0.9rem;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background:
-    radial-gradient(ellipse 115% 72% at 14% 68%, rgba(206, 17, 38, 0.08), transparent 52%),
-    radial-gradient(ellipse 48% 88% at 81% 31%, rgba(255, 255, 255, 0.045), transparent 46%),
-    radial-gradient(ellipse 92% 64% at 36% 112%, rgba(0, 0, 0, 0.12), transparent 54%),
-    radial-gradient(ellipse 38% 52% at 93% 71%, rgba(206, 17, 38, 0.05), transparent 40%),
-    radial-gradient(ellipse 42% 36% at 6% 18%, rgba(255, 255, 255, 0.035), transparent 38%),
-    radial-gradient(ellipse 55% 44% at 58% 22%, rgba(0, 0, 0, 0.06), transparent 44%),
-    rgba(255, 255, 255, 0.15);
-  -webkit-backdrop-filter: blur(12px) saturate(1.4);
-  backdrop-filter: blur(12px) saturate(1.4);
+  padding: 0;
+  border: none;
+  background: none;
   transition: color 0.2s ease;
 }
 .for-muslims-charity-btn:hover {
@@ -1805,22 +1825,12 @@ html.contact-route .ops-page {
     visibility 0s linear 0.42s;
 }
 @media (max-width: 768px) {
-  .head-quran {
-    padding: 0.72rem 0.88rem;
-  }
-  .for-muslims-charity-btn {
-    padding: 0.52rem 0.8rem;
-  }
   .for-muslims-charity-copy,
   .for-muslims-charity-donate {
     font-size: 0.72rem;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .audio-wave.is-active .audio-wave-osc {
-    animation: none;
-    transform: scaleY(0.65);
-  }
   .for-muslims-charity-copy,
   .for-muslims-charity-donate {
     transition: none;

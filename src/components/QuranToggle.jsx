@@ -27,13 +27,18 @@ export default function QuranToggle({ className = '' }) {
     <button
       type="button"
       className={`head-quran head-action ${className}`.trim()}
-      onClick={() => toggleQuran()}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleQuran();
+      }}
       aria-pressed={player.playing}
       aria-busy={player.loading}
       aria-label={player.surahName ? `${ariaLabel} — ${player.surahName}` : ariaLabel}
       title={title}
     >
-      <AudioWave active={player.playing && !player.loading} />
+      <AudioWave active={player.playing} />
+      <span className="head-quran__label">Quran</span>
     </button>
   );
 }

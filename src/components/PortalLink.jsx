@@ -1,11 +1,14 @@
 import React from 'react';
+import GlassSurface from './GlassSurface';
 import { useShell } from '../layout/Shell';
 
 export default function PortalLink({ className, children }) {
   const { openPortal } = useShell();
 
   return (
-    <a
+    <GlassSurface
+      as="a"
+      variant="pill"
       href="#portal"
       className={className}
       onClick={(e) => {
@@ -13,7 +16,7 @@ export default function PortalLink({ className, children }) {
         openPortal();
       }}
     >
-      {children}
-    </a>
+      <span className="glass-surface__content">{children}</span>
+    </GlassSurface>
   );
 }

@@ -1,5 +1,5 @@
 import { useLayoutEffect } from 'react';
-import { registerNavProgressiveBlur } from './glassBackdropRegistry';
+import { registerNavProgressiveBlur } from './navBlurRegistry';
 
 export function useNavProgressiveBlur(shellRef, layerCanvasRefs) {
   useLayoutEffect(() => {

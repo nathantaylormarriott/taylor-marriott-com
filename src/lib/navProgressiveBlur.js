@@ -1,4 +1,4 @@
-import { GLASS_MAX_DPR } from './glassBackdrop';
+const NAV_BLUR_MAX_DPR = 1.5;
 
 /**
  * Progressive layers — same band structure as av-associates .gradient-blur.
@@ -41,7 +41,7 @@ function drawLayer(canvas, sourceCanvas, shellRect, blurPx) {
   const sourceRect = sourceCanvas.getBoundingClientRect();
   if (sourceRect.width <= 0 || sourceRect.height <= 0) return;
 
-  const dpr = Math.min(window.devicePixelRatio || 1, GLASS_MAX_DPR);
+  const dpr = Math.min(window.devicePixelRatio || 1, NAV_BLUR_MAX_DPR);
   const pixelW = Math.max(1, Math.round(shellRect.width * dpr));
   const pixelH = Math.max(1, Math.round(shellRect.height * dpr));
 

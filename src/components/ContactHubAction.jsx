@@ -1,5 +1,4 @@
 import React from 'react';
-import GlassSurface from './GlassSurface';
 
 const ICONS = {
   phone: (
@@ -51,7 +50,7 @@ export default function ContactHubAction({
   type = 'link',
 }) {
   const content = (
-    <span className="glass-surface__content contact-hub__action-body">
+    <span className="contact-hub__action-body">
       {ICONS[icon]}
       <span className="contact-hub__action-copy">
         <span className="contact-hub__action-label">{label}</span>
@@ -62,28 +61,24 @@ export default function ContactHubAction({
 
   if (type === 'button') {
     return (
-      <GlassSurface
-        as="button"
+      <button
         type="button"
-        variant="pill"
         className="contact-hub__action"
         onClick={onClick}
       >
         {content}
-      </GlassSurface>
+      </button>
     );
   }
 
   return (
-    <GlassSurface
-      as="a"
-      variant="pill"
+    <a
       className="contact-hub__action"
       href={href}
       onClick={onClick}
       {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
     >
       {content}
-    </GlassSurface>
+    </a>
   );
 }

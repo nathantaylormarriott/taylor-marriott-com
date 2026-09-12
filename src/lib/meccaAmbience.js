@@ -1,13 +1,14 @@
 /** Distant mosque swift ambience — bioacoustic Web Audio synthesis. */
 
-const MASTER_GAIN = 1.17;
-const CLOSE_PEAK = 0.096;
-const MID_PEAK = 0.058;
-const FAR_PEAK = 0.032;
+const MASTER_GAIN = 1.32;
+const CLOSE_PEAK = 0.1;
+const MID_PEAK = 0.061;
+const FAR_PEAK = 0.034;
 const MAX_VOICES = 3;
 const WET_IDLE = 0.2;
 const WET_DUCKED = 0.11;
 const FLYOVER_STEPS = 10;
+const FADE_SEC = 0.55;
 
 let audioCtx = null;
 let isPlaying = false;
@@ -197,7 +198,7 @@ function startWindBed() {
 
   const windGain = audioCtx.createGain();
   windGain.gain.setValueAtTime(0.0001, now);
-  windGain.gain.exponentialRampToValueAtTime(0.0065, now + 4);
+  windGain.gain.exponentialRampToValueAtTime(0.0072, now + 4);
 
   const windLfo = audioCtx.createOscillator();
   windLfo.type = 'sine';
@@ -466,9 +467,9 @@ function playKaabaFlyover() {
 
 function nextFlyoverDelay() {
   const gap = Math.random();
-  if (gap < 0.14) return 700 + Math.random() * 500;
-  if (gap < 0.68) return 1500 + Math.random() * 2000;
-  return 3100 + Math.random() * 2800;
+  if (gap < 0.16) return 580 + Math.random() * 420;
+  if (gap < 0.7) return 1250 + Math.random() * 1650;
+  return 2650 + Math.random() * 2300;
 }
 
 function startFlockSimulation() {
@@ -533,6 +534,10 @@ export function bindMeccaAmbienceUnlock() {
   };
 }
 
+function waitMs(ms) {
+  return new Promise((resolve) => { window.setTimeout(resolve, ms); });
+}
+
 export function stopMeccaAmbience() {
   isPlaying = false;
   if (swiftTimer) {
@@ -541,6 +546,30 @@ export function stopMeccaAmbience() {
   }
   stopWindBed();
   activeVoices = 0;
+}
+
+export async function fadeMeccaAmbienceIn() {
+  const started = await startMeccaAmbience();
+  if (!started || !masterGain || !audioCtx) return false;
+  const t = audioCtx.currentTime;
+  masterGain.gain.cancelScheduledValues(t);
+  masterGain.gain.setValueAtTime(0.0001, t);
+  masterGain.gain.exponentialRampToValueAtTime(MASTER_GAIN, t + FADE_SEC);
+  return true;
+}
+
+export async function fadeMeccaAmbienceOut() {
+  if (!masterGain || !audioCtx || !isPlaying) {
+    stopMeccaAmbience();
+    return;
+  }
+  const t = audioCtx.currentTime;
+  const level = masterGain.gain.value;
+  masterGain.gain.cancelScheduledValues(t);
+  masterGain.gain.setValueAtTime(level, t);
+  masterGain.gain.exponentialRampToValueAtTime(0.0001, t + FADE_SEC);
+  await waitMs(FADE_SEC * 1000 + 40);
+  stopMeccaAmbience();
 }
 
 export function destroyMeccaAmbience() {

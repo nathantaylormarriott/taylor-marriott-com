@@ -1,41 +1,42 @@
-import React, { forwardRef, useRef } from 'react';
-import { useGlassSurface } from '../lib/useGlassSurface';
+import React, { forwardRef, useMemo } from 'react';
+import { useShell } from '../layout/Shell';
+import { getGlassConfig } from '../lib/liquidGlassConfig';
 
-/**
- * Unified glass stack (bottom → top):
- * 1. canvas — blurred WebGL snapshot
- * 2. tint — fields 6%, buttons 15%
- * 3. content — interactive child
- */
 const GlassSurface = forwardRef(function GlassSurface(
   {
     as: Tag = 'div',
     variant = 'field',
     className = '',
+    liquid = true,
+    style,
     children,
     ...props
   },
   ref,
 ) {
-  const shellRef = useRef(null);
-  const canvasRef = useRef(null);
+  const { reduced } = useShell();
+  const useLiquid = liquid && !reduced;
 
-  const setShellRef = (node) => {
-    shellRef.current = node;
-    if (typeof ref === 'function') ref(node);
-    else if (ref) ref.current = node;
-  };
+  const config = useMemo(
+    () => JSON.stringify(getGlassConfig(variant)),
+    [variant],
+  );
 
-  useGlassSurface(shellRef, canvasRef);
+  const classes = [
+    'glass-surface',
+    `glass-surface--${variant}`,
+    useLiquid ? '' : 'glass-surface--fallback',
+    className,
+  ].filter(Boolean).join(' ');
 
   return (
     <Tag
-      ref={setShellRef}
-      className={`glass-surface glass-surface--${variant}${className ? ` ${className}` : ''}`}
+      ref={ref}
+      className={classes}
+      data-config={useLiquid ? config : undefined}
+      style={style}
       {...props}
     >
-      <canvas className="glass-surface__canvas" ref={canvasRef} aria-hidden="true" />
-      <div className="glass-surface__tint" aria-hidden="true" />
       {children}
     </Tag>
   );

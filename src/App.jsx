@@ -16,7 +16,7 @@ export default function App() {
           <Route path="for-muslims" element={<ForMuslims />} />
           <Route path="admin" element={<Ops />} />
           <Route path="ops" element={<Navigate to="/admin" replace />} />
-          <Route path="portal" element={<Navigate to="/" replace state={{ openPortal: true }} />} />
+          <Route path="portal" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
     </BrowserRouter>

@@ -1,7 +1,11 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
 import { CONFIG } from '../config';
+import GlassButton from './GlassButton';
 import GlassField from './GlassField';
+import LiquidGlassRoot from './LiquidGlassRoot';
+
+const FORM_ID = 'contact-overlay-form';
 
 const encode = (data) =>
   Object.keys(data)
@@ -16,9 +20,10 @@ const SUCCESS_AUTO_CLOSE_MS = 5000;
 
 function getInvalidFields(form) {
   const invalid = [];
-  if (!form.name.value.trim()) invalid.push('name');
-  if (!form.email.value.trim() || !emailPattern.test(form.email.value.trim())) invalid.push('email');
-  if (!form.message.value.trim()) invalid.push('message');
+  const { name, email, message } = form.elements;
+  if (!name.value.trim()) invalid.push('name');
+  if (!email.value.trim() || !emailPattern.test(email.value.trim())) invalid.push('email');
+  if (!message.value.trim()) invalid.push('message');
   return invalid;
 }
 
@@ -116,12 +121,13 @@ export default function ContactPanel({ onClose }) {
 
     setStatus('sending');
 
+    const { name, email, company, message } = form.elements;
     const data = {
       'form-name': 'contact',
-      name: form.name.value.trim(),
-      email: form.email.value.trim(),
-      company: form.company.value.trim(),
-      message: form.message.value.trim(),
+      name: name.value.trim(),
+      email: email.value.trim(),
+      company: company.value.trim(),
+      message: message.value.trim(),
     };
 
     try {
@@ -153,35 +159,48 @@ export default function ContactPanel({ onClose }) {
             <p className="contact-success-body">
               Thanks for reaching out — we'll be in touch soon.
             </p>
-            <button type="button" className="contact-submit" onClick={handleReturnHome}>
-              Return to home
-            </button>
           </div>
         )}
       </div>
 
-      <div className="contact-main" ref={mainRef}>
-        <form
-          className="contact-form"
-          name="contact"
-          method="POST"
-          noValidate
-          data-netlify="true"
-          data-netlify-honeypot="bot-field"
-          onSubmit={handleSubmit}
-        >
-          <input type="hidden" name="form-name" value="contact" />
-          <p className="contact-honeypot" hidden>
-            <label>
-              Don't fill this out:
-              <input name="bot-field" />
-            </label>
-          </p>
+      {status === 'success' ? (
+        <LiquidGlassRoot className="contact-form-return">
+          <GlassButton
+            type="button"
+            className="contact-submit"
+            onClick={handleReturnHome}
+          >
+            Return to home
+          </GlassButton>
+        </LiquidGlassRoot>
+      ) : (
+        <LiquidGlassRoot className="contact-main" ref={mainRef}>
+          <form
+            id={FORM_ID}
+            className="contact-form contact-form-sink"
+            name="contact"
+            method="POST"
+            noValidate
+            data-netlify="true"
+            data-netlify-honeypot="bot-field"
+            onSubmit={handleSubmit}
+            hidden
+            aria-hidden="true"
+          >
+            <input type="hidden" name="form-name" value="contact" />
+            <p className="contact-honeypot" hidden>
+              <label>
+                Don't fill this out:
+                <input name="bot-field" />
+              </label>
+            </p>
+          </form>
 
           <GlassField
             id="contact-name"
             label="Name"
             name="name"
+            form={FORM_ID}
             autoComplete="name"
             wobble={wobbleFields.includes('name')}
           />
@@ -190,6 +209,7 @@ export default function ContactPanel({ onClose }) {
             id="contact-email"
             label="Email"
             name="email"
+            form={FORM_ID}
             type="email"
             autoComplete="email"
             wobble={wobbleFields.includes('email')}
@@ -199,6 +219,7 @@ export default function ContactPanel({ onClose }) {
             id="contact-company"
             label="Company"
             name="company"
+            form={FORM_ID}
             autoComplete="organization"
             optional
           />
@@ -207,21 +228,28 @@ export default function ContactPanel({ onClose }) {
             id="contact-message"
             label="Project details"
             name="message"
+            form={FORM_ID}
             multiline
             rows={5}
-            placeholder="What are you building? Who is it for? Any timeline or budget in mind?"
             wobble={wobbleFields.includes('message')}
           />
 
-          <button className="contact-submit" type="submit" disabled={status === 'sending'}>
+          <GlassButton
+            className="contact-submit"
+            type="submit"
+            form={FORM_ID}
+            disabled={status === 'sending'}
+          >
             {status === 'sending' ? 'Sending…' : 'Send message'}
-          </button>
+          </GlassButton>
 
           {status === 'error' && (
-            <p className="contact-error mono">Something went wrong. Please try again or email hello@taylor-marriott.com directly.</p>
+            <p className="contact-error mono">
+              Something went wrong. Please try again or email hello@taylor-marriott.com directly.
+            </p>
           )}
-        </form>
-      </div>
+        </LiquidGlassRoot>
+      )}
     </div>
   );
 }
