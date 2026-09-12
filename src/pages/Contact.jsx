@@ -144,6 +144,7 @@ export default function Contact() {
                 label="Name"
                 name="name"
                 autoComplete="name"
+                liquid={false}
                 wobble={wobbleFields.includes('name')}
               />
 
@@ -153,6 +154,7 @@ export default function Contact() {
                 name="email"
                 type="email"
                 autoComplete="email"
+                liquid={false}
                 wobble={wobbleFields.includes('email')}
               />
 
@@ -161,6 +163,7 @@ export default function Contact() {
                 label="Company"
                 name="company"
                 autoComplete="organization"
+                liquid={false}
                 optional
               />
 
@@ -170,6 +173,7 @@ export default function Contact() {
                 name="message"
                 multiline
                 rows={4}
+                liquid={false}
                 placeholder="What are you building? Timeline or budget in mind?"
                 wobble={wobbleFields.includes('message')}
               />

@@ -13,6 +13,7 @@ export default function GlassField({
   rows,
   placeholder,
   form,
+  liquid = true,
 }) {
   const InputTag = multiline ? 'textarea' : 'input';
   const fieldPlaceholder = placeholder ?? (optional ? `${label} (optional)` : label);
@@ -25,6 +26,7 @@ export default function GlassField({
       </label>
       <GlassSurface
         variant="field"
+        liquid={liquid}
         className={`glass-surface--input contact-form-item${multiline ? ' glass-surface--textarea' : ''}`}
       >
         <InputTag

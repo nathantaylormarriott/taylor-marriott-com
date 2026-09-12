@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef } from 'react';
 import gsap from 'gsap';
 import { CONFIG } from '../config';
-import { revealHeroTitle } from '../lib/heroReveal';
+import { revealHeroTitle, runHeroEntrance } from '../lib/heroReveal';
 import { useShell } from '../layout/Shell';
 import { SplitWords } from '../components/shared';
 import { destroyMeccaAmbience } from '../lib/meccaAmbience';
@@ -50,56 +50,20 @@ export default function ForMuslims() {
     const ctx = gsap.context(() => {
       gsap.defaults({ ease: CONFIG.ease });
 
-      const runHeroEntrance = () => {
-        const heroWords = root.querySelectorAll('.hero-title .split-word');
+      const startHeroEntrance = () => {
         const footEl = root.querySelector('.for-muslims-foot');
         const headEls = containerRef.current?.querySelectorAll('.logo, .head-action');
-
-        if (!heroWords.length) {
-          revealHeroTitle(root);
-          return;
-        }
-
-        gsap.set(headEls, { opacity: 0, pointerEvents: 'auto' });
-        gsap.set(heroWords, { autoAlpha: 0 });
-        if (footEl) gsap.set(footEl, { autoAlpha: 0 });
-
-        const finishHeroEntrance = () => {
-          window.clearTimeout(heroFallbackTimer);
-          revealHeroTitle(root);
-        };
-
-        const heroEntrance = gsap.timeline({ onComplete: finishHeroEntrance });
-        if (reduced) {
-          heroEntrance
-            .from(headEls, { opacity: 0, duration: 1.6 }, 0)
-            .to(heroWords, { autoAlpha: 1, duration: 1.2 }, 0);
-          if (footEl) heroEntrance.to(footEl, { autoAlpha: 1, duration: 1.2 }, 0.2);
-        } else {
-          heroEntrance
-            .fromTo(headEls,
-              { opacity: 0, y: -14, filter: 'blur(6px)' },
-              { opacity: 1, y: 0, filter: 'blur(0px)', duration: 2.8, ease: CONFIG.easeLong, pointerEvents: 'auto' },
-              0
-            )
-            .fromTo(heroWords,
-              { autoAlpha: 0, y: 22, filter: 'blur(8px)' },
-              { autoAlpha: 1, y: 0, filter: 'blur(0px)', duration: 1.8, ease: CONFIG.easeLong, stagger: { each: 0.14, from: 'start' } },
-              0
-            );
-          if (footEl) {
-            heroEntrance.fromTo(footEl,
-              { autoAlpha: 0, y: 18, filter: 'blur(8px)' },
-              { autoAlpha: 1, y: 0, filter: 'blur(0px)', duration: 1.6, ease: CONFIG.easeLong },
-              0.35
-            );
-          }
-        }
-
-        heroFallbackTimer = window.setTimeout(finishHeroEntrance, 3200);
+        const { fallbackMs } = runHeroEntrance({
+          scope: root,
+          headEls,
+          footEl,
+          reduced,
+          onComplete: () => window.clearTimeout(heroFallbackTimer),
+        });
+        heroFallbackTimer = window.setTimeout(() => revealHeroTitle(root), fallbackMs || 4200);
       };
 
-      entranceFrame = requestAnimationFrame(runHeroEntrance);
+      entranceFrame = requestAnimationFrame(startHeroEntrance);
     }, root);
 
     return () => {

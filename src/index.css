@@ -204,22 +204,22 @@ main {
 .head-contact {
   flex-shrink: 0;
   font-family: var(--font-mono);
-  font-size: 0.62rem;
+  font-size: 0.72rem;
   font-weight: 500;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   text-decoration: none;
-  color: var(--void);
-  background: var(--star);
+  color: var(--star);
+  background: none;
   border: none;
-  border-radius: 999px;
-  padding: 0.9rem 1.35rem;
+  border-radius: 0;
+  padding: 0;
   cursor: pointer;
-  transition: background 0.2s ease, color 0.2s ease;
+  transition: color 0.2s ease;
 }
 .head-contact:hover {
-  background: #fff;
-  color: var(--void);
+  background: none;
+  color: #fff;
 }
 .head-quran {
   flex-shrink: 0;
@@ -905,7 +905,7 @@ main {
     padding: 0.75rem 1.1rem;
     font-size: 0.58rem;
   }
-  .head-contact { padding: 0.75rem 1.1rem; font-size: 0.58rem; }
+  .head-contact { font-size: 0.62rem; }
   .panel { padding: 16vh var(--page-pad-x); }
   .closing-btn { padding: 0.75rem 1.35rem; font-size: 0.58rem; }
   .stats { padding: 14vh var(--page-pad-x); }
@@ -1802,13 +1802,6 @@ html.contact-route .ops-page {
 .for-muslims-route .hero-title-center .hero-title {
   pointer-events: auto;
 }
-.for-muslims-route .head-contact {
-  background: none;
-  color: var(--star);
-  border-radius: 0;
-  padding: 0;
-  font-size: 0.72rem;
-}
 .for-muslims-route .head-quran__copy,
 .for-muslims-route .head-quran__short {
   font-size: 0.72rem;
@@ -1816,10 +1809,6 @@ html.contact-route .ops-page {
 .for-muslims-route .head-quran .audio-wave {
   width: 1.7rem;
   height: 0.88rem;
-}
-.for-muslims-route .head-contact:hover {
-  background: none;
-  color: #fff;
 }
 .for-muslims-foot {
   position: fixed;

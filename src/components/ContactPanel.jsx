@@ -3,29 +3,10 @@ import gsap from 'gsap';
 import { CONFIG } from '../config';
 import GlassButton from './GlassButton';
 import GlassField from './GlassField';
-import LiquidGlassRoot from './LiquidGlassRoot';
+import { submitContactForm } from '../lib/contactForm';
 
 const FORM_ID = 'contact-overlay-form';
-
-const encode = (data) =>
-  Object.keys(data)
-    .map((key) => `${encodeURIComponent(key)}=${encodeURIComponent(data[key])}`)
-    .join('&');
-
-const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-// TEMP: remove before launch — skip validation + submit for success-flow testing
-const TEMP_BYPASS_CONTACT_SUBMIT = true;
 const SUCCESS_AUTO_CLOSE_MS = 5000;
-
-function getInvalidFields(form) {
-  const invalid = [];
-  const { name, email, message } = form.elements;
-  if (!name.value.trim()) invalid.push('name');
-  if (!email.value.trim() || !emailPattern.test(email.value.trim())) invalid.push('email');
-  if (!message.value.trim()) invalid.push('message');
-  return invalid;
-}
 
 export default function ContactPanel({ onClose }) {
   const [status, setStatus] = useState('idle');
@@ -105,37 +86,19 @@ export default function ContactPanel({ onClose }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const form = e.target;
-
-    if (TEMP_BYPASS_CONTACT_SUBMIT) {
-      setStatus('success');
-      form.reset();
-      return;
-    }
-
-    const invalid = getInvalidFields(form);
-
-    if (invalid.length) {
-      triggerWobble(invalid);
-      return;
-    }
-
     setStatus('sending');
 
-    const { name, email, company, message } = form.elements;
-    const data = {
-      'form-name': 'contact',
-      name: name.value.trim(),
-      email: email.value.trim(),
-      company: company.value.trim(),
-      message: message.value.trim(),
-    };
-
     try {
-      await fetch('/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: encode(data),
-      });
+      const result = await submitContactForm(form);
+      if (result.invalid?.length) {
+        triggerWobble(result.invalid);
+        setStatus('idle');
+        return;
+      }
+      if (!result.ok) {
+        setStatus('error');
+        return;
+      }
       setStatus('success');
       form.reset();
     } catch {
@@ -164,28 +127,27 @@ export default function ContactPanel({ onClose }) {
       </div>
 
       {status === 'success' ? (
-        <LiquidGlassRoot className="contact-form-return">
+        <div className="contact-form-return">
           <GlassButton
             type="button"
             className="contact-submit"
+            liquid={false}
             onClick={handleReturnHome}
           >
             Return to home
           </GlassButton>
-        </LiquidGlassRoot>
+        </div>
       ) : (
-        <LiquidGlassRoot className="contact-main" ref={mainRef}>
+        <div className="contact-main" ref={mainRef}>
           <form
             id={FORM_ID}
-            className="contact-form contact-form-sink"
+            className="contact-form"
             name="contact"
             method="POST"
             noValidate
             data-netlify="true"
             data-netlify-honeypot="bot-field"
             onSubmit={handleSubmit}
-            hidden
-            aria-hidden="true"
           >
             <input type="hidden" name="form-name" value="contact" />
             <p className="contact-honeypot" hidden>
@@ -194,61 +156,61 @@ export default function ContactPanel({ onClose }) {
                 <input name="bot-field" />
               </label>
             </p>
+
+            <GlassField
+              id="contact-name"
+              label="Name"
+              name="name"
+              autoComplete="name"
+              liquid={false}
+              wobble={wobbleFields.includes('name')}
+            />
+
+            <GlassField
+              id="contact-email"
+              label="Email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              liquid={false}
+              wobble={wobbleFields.includes('email')}
+            />
+
+            <GlassField
+              id="contact-company"
+              label="Company"
+              name="company"
+              autoComplete="organization"
+              liquid={false}
+              optional
+            />
+
+            <GlassField
+              id="contact-message"
+              label="Project details"
+              name="message"
+              multiline
+              rows={5}
+              liquid={false}
+              wobble={wobbleFields.includes('message')}
+            />
+
+            <GlassButton
+              className="contact-submit"
+              type="submit"
+              liquid={false}
+              disabled={status === 'sending'}
+            >
+              {status === 'sending' ? 'Sending…' : 'Send message'}
+            </GlassButton>
+
+            {status === 'error' && (
+              <p className="contact-error mono">
+                Something went wrong. Please try again or email hello@taylor-marriott.com directly.
+              </p>
+            )}
           </form>
-
-          <GlassField
-            id="contact-name"
-            label="Name"
-            name="name"
-            form={FORM_ID}
-            autoComplete="name"
-            wobble={wobbleFields.includes('name')}
-          />
-
-          <GlassField
-            id="contact-email"
-            label="Email"
-            name="email"
-            form={FORM_ID}
-            type="email"
-            autoComplete="email"
-            wobble={wobbleFields.includes('email')}
-          />
-
-          <GlassField
-            id="contact-company"
-            label="Company"
-            name="company"
-            form={FORM_ID}
-            autoComplete="organization"
-            optional
-          />
-
-          <GlassField
-            id="contact-message"
-            label="Project details"
-            name="message"
-            form={FORM_ID}
-            multiline
-            rows={5}
-            wobble={wobbleFields.includes('message')}
-          />
-
-          <GlassButton
-            className="contact-submit"
-            type="submit"
-            form={FORM_ID}
-            disabled={status === 'sending'}
-          >
-            {status === 'sending' ? 'Sending…' : 'Send message'}
-          </GlassButton>
-
-          {status === 'error' && (
-            <p className="contact-error mono">
-              Something went wrong. Please try again or email hello@taylor-marriott.com directly.
-            </p>
-          )}
-        </LiquidGlassRoot>
+        </div>
       )}
     </div>
   );

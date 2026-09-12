@@ -3,7 +3,7 @@ import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import Lenis from 'lenis';
 import { CONFIG, HOME_BELOW_HERO } from '../config';
-import { revealHeroTitle } from '../lib/heroReveal';
+import { revealHeroTitle, runHeroEntrance } from '../lib/heroReveal';
 import { useShell } from '../layout/Shell';
 import ContactLink from '../components/ContactLink';
 import {
@@ -83,46 +83,19 @@ export default function Home() {
     const ctx = gsap.context(() => {
       gsap.defaults({ ease: CONFIG.ease });
 
-      const runHeroEntrance = () => {
+      const startHeroEntrance = () => {
         const root = mainRef.current;
-        const heroWords = root?.querySelectorAll('.hero-title .split-word');
         const headEls = containerRef.current?.querySelectorAll('.logo, .head-action');
-        if (!heroWords?.length) {
-          revealHeroTitle(root);
-          return;
-        }
-
-        gsap.set(headEls, { autoAlpha: 0 });
-        gsap.set(heroWords, { autoAlpha: 0 });
-
-        const finishHeroEntrance = () => {
-          window.clearTimeout(heroFallbackTimer);
-          revealHeroTitle(root);
-        };
-
-        const heroEntrance = gsap.timeline({ onComplete: finishHeroEntrance });
-        if (reduced) {
-          heroEntrance
-            .from(headEls, { autoAlpha: 0, duration: 1.6 }, 0)
-            .to(heroWords, { autoAlpha: 1, duration: 1.2 }, 0);
-        } else {
-          heroEntrance
-            .fromTo(headEls,
-              { autoAlpha: 0, y: -14, filter: 'blur(6px)' },
-              { autoAlpha: 1, y: 0, filter: 'blur(0px)', duration: 2.8, ease: CONFIG.easeLong },
-              0
-            )
-            .fromTo(heroWords,
-              { autoAlpha: 0, y: 22, filter: 'blur(8px)' },
-              { autoAlpha: 1, y: 0, filter: 'blur(0px)', duration: 1.8, ease: CONFIG.easeLong, stagger: { each: 0.14, from: 'start' } },
-              0
-            );
-        }
-
-        heroFallbackTimer = window.setTimeout(finishHeroEntrance, 3200);
+        const { fallbackMs } = runHeroEntrance({
+          scope: root,
+          headEls,
+          reduced,
+          onComplete: () => window.clearTimeout(heroFallbackTimer),
+        });
+        heroFallbackTimer = window.setTimeout(() => revealHeroTitle(root), fallbackMs || 4200);
       };
 
-      entranceFrame = requestAnimationFrame(runHeroEntrance);
+      entranceFrame = requestAnimationFrame(startHeroEntrance);
 
       requestAnimationFrame(() => {
         syncFooterHeight();

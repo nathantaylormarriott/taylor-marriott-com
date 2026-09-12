@@ -37,6 +37,7 @@ const GlassSurface = forwardRef(function GlassSurface(
       style={style}
       {...props}
     >
+      {!useLiquid && <span className="glass-surface__tint" aria-hidden="true" />}
       {children}
     </Tag>
   );
