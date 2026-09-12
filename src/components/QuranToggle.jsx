@@ -14,16 +14,15 @@ export default function QuranToggle({ className = '' }) {
 
   useEffect(() => subscribeQuranPlayer(setPlayer), []);
 
-  const prompted = !player.unlocked;
-  const label = prompted ? 'Listen to Quran' : 'Quran';
+  const unlocked = player.unlocked;
 
   const ariaLabel = player.loading
     ? 'Loading Quran and ambience'
     : player.playing
       ? 'Pause Quran and ambience'
-      : prompted
-        ? 'Listen to Quran'
-        : 'Play Quran and ambience';
+      : unlocked
+        ? 'Play Quran and ambience'
+        : 'Listen to Quran';
 
   const title = player.surahName && player.reciterName
     ? `${player.reciterName} — ${player.surahName}`
@@ -38,7 +37,7 @@ export default function QuranToggle({ className = '' }) {
   return (
     <button
       type="button"
-      className={`head-quran head-action ${prompted ? 'head-quran--prompt' : ''} ${className}`.trim()}
+      className={`head-quran head-action ${unlocked ? 'head-quran--unlocked' : ''} ${className}`.trim()}
       onPointerDown={onToggle}
       aria-pressed={player.playing}
       aria-busy={player.loading}
@@ -46,7 +45,10 @@ export default function QuranToggle({ className = '' }) {
       title={title}
     >
       <AudioWave active={player.playing} />
-      <span className="head-quran__label">{label}</span>
+      <span className="head-quran__label">
+        <span className="head-quran__copy">Listen to Quran</span>
+        <span className="head-quran__short" aria-hidden={!unlocked}>Quran</span>
+      </span>
     </button>
   );
 }

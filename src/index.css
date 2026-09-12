@@ -240,16 +240,59 @@ main {
   color: #fff;
 }
 .head-quran__label {
+  display: inline-grid;
+  place-items: center;
+  isolation: isolate;
+}
+.head-quran__copy,
+.head-quran__short {
+  grid-area: 1 / 1;
+  white-space: nowrap;
   font-family: var(--font-mono);
   font-size: 0.62rem;
   font-weight: 500;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   line-height: 1;
 }
-.head-quran--prompt .head-quran__label {
-  letter-spacing: 0.12em;
-  white-space: nowrap;
+.head-quran__copy {
+  opacity: 1;
+  filter: blur(0);
+  visibility: visible;
+  transition:
+    opacity 0.52s cubic-bezier(0.22, 1, 0.36, 1) 0.18s,
+    filter 0.58s cubic-bezier(0.22, 1, 0.36, 1) 0.14s,
+    visibility 0s linear 0s;
+}
+.head-quran__short {
+  opacity: 0;
+  filter: blur(4px);
+  visibility: hidden;
+  pointer-events: none;
+  letter-spacing: 0.16em;
+  transition:
+    opacity 0.34s cubic-bezier(0.4, 0, 1, 1),
+    filter 0.34s cubic-bezier(0.4, 0, 1, 1),
+    visibility 0s linear 0.34s;
+}
+.head-quran--unlocked .head-quran__copy {
+  opacity: 0;
+  filter: blur(4px);
+  visibility: hidden;
+  transition:
+    opacity 0.38s cubic-bezier(0.4, 0, 1, 1),
+    filter 0.44s cubic-bezier(0.4, 0, 1, 1),
+    visibility 0s linear 0.38s;
+}
+.head-quran--unlocked .head-quran__short {
+  opacity: 1;
+  filter: blur(0);
+  visibility: visible;
+  pointer-events: auto;
+  transition:
+    opacity 0.56s cubic-bezier(0.22, 1, 0.36, 1) 0.42s,
+    filter 0.56s cubic-bezier(0.22, 1, 0.36, 1) 0.42s,
+    visibility 0s linear 0.42s;
 }
 .audio-wave {
   display: block;
@@ -1756,7 +1799,8 @@ html.contact-route .ops-page {
   padding: 0;
   font-size: 0.72rem;
 }
-.for-muslims-route .head-quran__label {
+.for-muslims-route .head-quran__copy,
+.for-muslims-route .head-quran__short {
   font-size: 0.72rem;
 }
 .for-muslims-route .head-quran .audio-wave {
@@ -1862,7 +1906,9 @@ html.contact-route .ops-page {
 }
 @media (prefers-reduced-motion: reduce) {
   .for-muslims-charity-copy,
-  .for-muslims-charity-donate {
+  .for-muslims-charity-donate,
+  .head-quran__copy,
+  .head-quran__short {
     transition: none;
   }
   .for-muslims-charity-btn:hover .for-muslims-charity-copy {
@@ -1870,6 +1916,14 @@ html.contact-route .ops-page {
     filter: none;
   }
   .for-muslims-charity-btn:hover .for-muslims-charity-donate {
+    opacity: 1;
+    filter: none;
+  }
+  .head-quran--unlocked .head-quran__copy {
+    opacity: 0;
+    filter: none;
+  }
+  .head-quran--unlocked .head-quran__short {
     opacity: 1;
     filter: none;
   }
