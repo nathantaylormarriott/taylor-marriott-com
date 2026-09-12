@@ -3,9 +3,6 @@ import { registerNavProgressiveBlur } from './navBlurRegistry';
 
 export function useNavProgressiveBlur(shellRef, layerCanvasRefs) {
   useLayoutEffect(() => {
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduced) return undefined;
-
     const shell = shellRef.current;
     if (!shell) return undefined;
 

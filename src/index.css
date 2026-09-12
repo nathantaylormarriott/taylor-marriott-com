@@ -118,6 +118,11 @@ body {
   height: 100%;
   pointer-events: none;
 }
+.nav-progressive-blur__layer canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
 .nav-progressive-blur__layer--before { z-index: 1; mask: linear-gradient(to top, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 1) 12.5%, rgba(0, 0, 0, 1) 25%, rgba(0, 0, 0, 0) 37.5%); -webkit-mask: linear-gradient(to top, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 1) 12.5%, rgba(0, 0, 0, 1) 25%, rgba(0, 0, 0, 0) 37.5%); }
 .nav-progressive-blur__layer--1 { z-index: 2; mask: linear-gradient(to top, rgba(0, 0, 0, 0) 12.5%, rgba(0, 0, 0, 1) 25%, rgba(0, 0, 0, 1) 37.5%, rgba(0, 0, 0, 0) 50%); -webkit-mask: linear-gradient(to top, rgba(0, 0, 0, 0) 12.5%, rgba(0, 0, 0, 1) 25%, rgba(0, 0, 0, 1) 37.5%, rgba(0, 0, 0, 0) 50%); }
 .nav-progressive-blur__layer--2 { z-index: 3; mask: linear-gradient(to top, rgba(0, 0, 0, 0) 25%, rgba(0, 0, 0, 1) 37.5%, rgba(0, 0, 0, 1) 50%, rgba(0, 0, 0, 0) 62.5%); -webkit-mask: linear-gradient(to top, rgba(0, 0, 0, 0) 25%, rgba(0, 0, 0, 1) 37.5%, rgba(0, 0, 0, 1) 50%, rgba(0, 0, 0, 0) 62.5%); }
@@ -126,6 +131,19 @@ body {
 .nav-progressive-blur__layer--5 { z-index: 6; mask: linear-gradient(to top, rgba(0, 0, 0, 0) 62.5%, rgba(0, 0, 0, 1) 75%, rgba(0, 0, 0, 1) 87.5%, rgba(0, 0, 0, 0) 100%); -webkit-mask: linear-gradient(to top, rgba(0, 0, 0, 0) 62.5%, rgba(0, 0, 0, 1) 75%, rgba(0, 0, 0, 1) 87.5%, rgba(0, 0, 0, 0) 100%); }
 .nav-progressive-blur__layer--6 { z-index: 7; opacity: 0.92; mask: linear-gradient(to top, rgba(0, 0, 0, 0) 75%, rgba(0, 0, 0, 1) 87.5%, rgba(0, 0, 0, 1) 100%); -webkit-mask: linear-gradient(to top, rgba(0, 0, 0, 0) 75%, rgba(0, 0, 0, 1) 87.5%, rgba(0, 0, 0, 1) 100%); }
 .nav-progressive-blur__layer--after { z-index: 8; opacity: 0.78; mask: linear-gradient(to top, rgba(0, 0, 0, 0) 87.5%, rgba(0, 0, 0, 1) 100%); -webkit-mask: linear-gradient(to top, rgba(0, 0, 0, 0) 87.5%, rgba(0, 0, 0, 1) 100%); }
+.nav-progressive-blur__layer--before,
+.nav-progressive-blur__layer--1,
+.nav-progressive-blur__layer--2,
+.nav-progressive-blur__layer--3,
+.nav-progressive-blur__layer--4,
+.nav-progressive-blur__layer--5,
+.nav-progressive-blur__layer--6,
+.nav-progressive-blur__layer--after {
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+}
 main {
   position: relative;
   z-index: 2;
@@ -214,6 +232,8 @@ main {
   background: none;
   color: var(--star);
   cursor: pointer;
+  pointer-events: auto;
+  touch-action: manipulation;
   transition: color 0.2s ease;
 }
 .head-quran:hover {
@@ -226,6 +246,10 @@ main {
   letter-spacing: 0.16em;
   text-transform: uppercase;
   line-height: 1;
+}
+.head-quran--prompt .head-quran__label {
+  letter-spacing: 0.12em;
+  white-space: nowrap;
 }
 .audio-wave {
   display: block;
@@ -844,6 +868,12 @@ main {
   .log-row { grid-template-columns: 1fr; gap: 0.6rem; }
   .log-tag { text-align: left; }
   .progress { display: none; }
+  .nav-progressive-blur {
+    height: calc(5.25rem + env(safe-area-inset-top, 0px));
+  }
+  .site-head {
+    padding-top: calc(var(--page-pad-y) + env(safe-area-inset-top, 0px));
+  }
   .site-footer-top { flex-direction: column; align-items: flex-start; }
   .site-footer-mark img { height: clamp(2rem, 14vw, 3.2rem); }
   .site-footer-cols { gap: 28px; margin-left: 0; }
@@ -1847,5 +1877,4 @@ html.contact-route .ops-page {
 /* ---------- Reduced motion ---------- */
 @media (prefers-reduced-motion: reduce) {
   .progress { display: none; }
-  .nav-progressive-blur { display: none; }
 }

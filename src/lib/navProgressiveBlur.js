@@ -1,5 +1,33 @@
 const NAV_BLUR_MAX_DPR = 1.5;
 
+let canvasFilterSupported = null;
+
+function getNavBlurDpr() {
+  const cap = window.matchMedia('(max-width: 768px), (pointer: coarse)').matches
+    ? 1
+    : NAV_BLUR_MAX_DPR;
+  return Math.min(window.devicePixelRatio || 1, cap);
+}
+
+function supportsCanvasFilter() {
+  if (canvasFilterSupported != null) return canvasFilterSupported;
+  try {
+    const probe = document.createElement('canvas');
+    probe.width = 2;
+    probe.height = 2;
+    const ctx = probe.getContext('2d');
+    if (!ctx || typeof ctx.filter !== 'string') {
+      canvasFilterSupported = false;
+      return false;
+    }
+    ctx.filter = 'blur(2px)';
+    canvasFilterSupported = ctx.filter.includes('blur');
+  } catch {
+    canvasFilterSupported = false;
+  }
+  return canvasFilterSupported;
+}
+
 /**
  * Progressive layers — same band structure as av-associates .gradient-blur.
  * Blur strengths are slightly restrained; canvas filter reads heavier than CSS backdrop-filter.
@@ -41,7 +69,7 @@ function drawLayer(canvas, sourceCanvas, shellRect, blurPx) {
   const sourceRect = sourceCanvas.getBoundingClientRect();
   if (sourceRect.width <= 0 || sourceRect.height <= 0) return;
 
-  const dpr = Math.min(window.devicePixelRatio || 1, NAV_BLUR_MAX_DPR);
+  const dpr = getNavBlurDpr();
   const pixelW = Math.max(1, Math.round(shellRect.width * dpr));
   const pixelH = Math.max(1, Math.round(shellRect.height * dpr));
 
@@ -54,6 +82,9 @@ function drawLayer(canvas, sourceCanvas, shellRect, blurPx) {
 
   const ctx = canvas.getContext('2d', { alpha: true });
   if (!ctx) return;
+
+  const useCanvasFilter = supportsCanvasFilter();
+  canvas.style.filter = useCanvasFilter ? 'none' : `blur(${Math.min(blurPx, 12)}px) saturate(1.2)`;
 
   // Extra vertical sampling room — backdrop-filter sees surrounding pixels; a tight crop looks harsh.
   const bleed = Math.min(72, Math.max(20, blurPx * 2.5));
@@ -73,7 +104,7 @@ function drawLayer(canvas, sourceCanvas, shellRect, blurPx) {
   scratch.clearRect(0, 0, shellRect.width, captureHeight);
 
   try {
-    scratch.filter = `blur(${blurPx}px) saturate(1.2)`;
+    scratch.filter = useCanvasFilter ? `blur(${blurPx}px) saturate(1.2)` : 'none';
     scratch.drawImage(
       sourceCanvas,
       sx,

@@ -5,12 +5,11 @@ import { revealHeroTitle } from '../lib/heroReveal';
 import { useShell } from '../layout/Shell';
 import { SplitWords } from '../components/shared';
 import { destroyMeccaAmbience } from '../lib/meccaAmbience';
-import { destroyQuranPlayer, startMediaSession } from '../lib/quranPlayer';
+import { destroyQuranPlayer, startMediaSession, canGestureStartQuran, GENTLE_FADE_MS } from '../lib/quranPlayer';
 
 export default function ForMuslims() {
   const { containerRef, sceneApiRef, reduced } = useShell();
   const mainRef = useRef(null);
-  const startedRef = useRef(false);
 
   useLayoutEffect(() => {
     window.scrollTo(0, 0);
@@ -25,22 +24,19 @@ export default function ForMuslims() {
   useEffect(() => {
     let cancelled = false;
 
-    const start = async () => {
-      try {
-        if (cancelled || startedRef.current) return;
-        startedRef.current = true;
-        await startMediaSession();
-      } catch {
-        // Autoplay is often blocked until the visitor taps the wave button.
-      }
+    const onGesture = (event) => {
+      if (cancelled || !canGestureStartQuran()) return;
+      if (event.target?.closest?.('.head-quran')) return;
+      startMediaSession({ fadeMs: GENTLE_FADE_MS }).catch(() => {});
     };
 
-    start();
+    window.addEventListener('pointerdown', onGesture, { capture: true });
+
     return () => {
       cancelled = true;
+      window.removeEventListener('pointerdown', onGesture, { capture: true });
       destroyQuranPlayer();
       destroyMeccaAmbience();
-      startedRef.current = false;
     };
   }, []);
 
@@ -64,7 +60,7 @@ export default function ForMuslims() {
           return;
         }
 
-        gsap.set(headEls, { autoAlpha: 0 });
+        gsap.set(headEls, { opacity: 0, pointerEvents: 'auto' });
         gsap.set(heroWords, { autoAlpha: 0 });
         if (footEl) gsap.set(footEl, { autoAlpha: 0 });
 
@@ -76,14 +72,14 @@ export default function ForMuslims() {
         const heroEntrance = gsap.timeline({ onComplete: finishHeroEntrance });
         if (reduced) {
           heroEntrance
-            .from(headEls, { autoAlpha: 0, duration: 1.6 }, 0)
+            .from(headEls, { opacity: 0, duration: 1.6 }, 0)
             .to(heroWords, { autoAlpha: 1, duration: 1.2 }, 0);
           if (footEl) heroEntrance.to(footEl, { autoAlpha: 1, duration: 1.2 }, 0.2);
         } else {
           heroEntrance
             .fromTo(headEls,
-              { autoAlpha: 0, y: -14, filter: 'blur(6px)' },
-              { autoAlpha: 1, y: 0, filter: 'blur(0px)', duration: 2.8, ease: CONFIG.easeLong },
+              { opacity: 0, y: -14, filter: 'blur(6px)' },
+              { opacity: 1, y: 0, filter: 'blur(0px)', duration: 2.8, ease: CONFIG.easeLong, pointerEvents: 'auto' },
               0
             )
             .fromTo(heroWords,

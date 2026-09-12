@@ -2,7 +2,6 @@ import { QURAN_ENABLED } from '../config';
 import {
   fadeMeccaAmbienceIn,
   fadeMeccaAmbienceOut,
-  startMeccaAmbience,
   stopMeccaAmbience,
 } from './meccaAmbience';
 
@@ -14,6 +13,7 @@ const AUDIO_BASE = 'https://download.quranicaudio.com/quran/sa3d_al-ghaamidi/com
 const QURAN_VOLUME = 0.32;
 const PREFETCH_AT = 0.78;
 const FADE_MS = 550;
+export const GENTLE_FADE_MS = 3200;
 
 /** Surahs under ~10 min for this reciter (file size cap used when list was built). */
 const ELIGIBLE_SURAHS = [
@@ -86,11 +86,15 @@ let prefetchScheduled = false;
 let pendingNextChapter = null;
 let playQueue = [];
 let sessionActive = false;
-let toggling = false;
+let sessionUnlocked = false;
+let userPaused = false;
+let syncing = false;
+let intentPlaying = false;
 let listeners = new Set();
 
 const state = {
   playing: false,
+  unlocked: false,
   loading: false,
   surah: null,
   surahName: '',
@@ -330,16 +334,17 @@ function ensureAudio() {
     prefetchScheduled = false;
     const next = pendingNextChapter ?? pickNextSurah(state.surah ? [state.surah] : []);
     pendingNextChapter = null;
-    playSurah(next, { fadeIn: true }).catch((err) => setState({ error: err.message, playing: false }));
+    playSurah(next, { fadeIn: true }).catch((err) => setState({ error: err.message }));
   });
   audio.addEventListener('error', () => {
-    setState({ error: 'Playback failed', playing: false });
+    if (!sessionActive) return;
+    setState({ error: 'Playback failed' });
   });
 
   return audio;
 }
 
-async function playSurah(chapter, { fadeIn = false } = {}) {
+async function playSurah(chapter, { fadeIn = false, fadeMs = FADE_MS } = {}) {
   if (!ELIGIBLE_SURAHS.includes(chapter)) throw new Error('Surah not available');
 
   const url = surahUrl(chapter);
@@ -361,11 +366,9 @@ async function playSurah(chapter, { fadeIn = false } = {}) {
   if (fadeIn) setQuranLevel(0);
   else setQuranLevel(QURAN_VOLUME);
   await player.play();
-  if (fadeIn) await fadeQuranVolume(QURAN_VOLUME);
+  if (fadeIn) await fadeQuranVolume(QURAN_VOLUME, fadeMs);
 
   setState({
-    playing: true,
-    loading: false,
     surah: chapter,
     surahName: surahName(chapter),
     reciterName: RECITER_NAME,
@@ -385,54 +388,120 @@ export async function initQuranPlayer() {
   ready = true;
 }
 
-async function resumeQuran() {
+async function resumeQuran(fadeMs = FADE_MS) {
   const player = ensureAudio();
   if (player.src && !player.ended) {
     await ensureQuranGraph(player);
     setReverbBypass(false);
     setQuranLevel(0);
     await player.play();
-    await fadeQuranVolume(QURAN_VOLUME);
-    setState({ playing: true, surahName: surahName(state.surah), reciterName: RECITER_NAME });
+    await fadeQuranVolume(QURAN_VOLUME, fadeMs);
+    setState({ surahName: surahName(state.surah), reciterName: RECITER_NAME });
     return;
   }
-  await playSurah(state.surah ?? pickNextSurah(), { fadeIn: true });
+  await playSurah(state.surah ?? pickNextSurah(), { fadeIn: true, fadeMs });
 }
 
-export async function resumeMediaSession() {
-  if (sessionActive) return true;
-  sessionActive = true;
-  setState({ loading: true, playing: true, error: null });
+export function canGestureStartQuran() {
+  return !sessionActive && !sessionUnlocked && !userPaused && !syncing && !intentPlaying;
+}
+
+async function startSession({ fadeMs = FADE_MS } = {}) {
+  setState({ loading: true, error: null });
+  const fadeSec = fadeMs / 1000;
 
   if (!QURAN_ENABLED) {
-    const started = await fadeMeccaAmbienceIn();
-    setState({ playing: started, loading: false });
+    const started = await fadeMeccaAmbienceIn(fadeSec);
+    sessionActive = started;
+    sessionUnlocked = started || sessionUnlocked;
+    setState({ playing: started, unlocked: sessionUnlocked, loading: false });
+    if (!started) stopMeccaAmbience();
     return started;
   }
 
   if (!ready) await initQuranPlayer();
 
   const [ambienceResult, quranResult] = await Promise.allSettled([
-    fadeMeccaAmbienceIn(),
-    state.surah ? resumeQuran() : playSurah(pickNextSurah(), { fadeIn: true }),
+    fadeMeccaAmbienceIn(fadeSec),
+    state.surah ? resumeQuran(fadeMs) : playSurah(pickNextSurah(), { fadeIn: true, fadeMs }),
   ]);
 
-  const started = ambienceResult.status === 'fulfilled' || quranResult.status === 'fulfilled';
-  if (!started) sessionActive = false;
+  const started = quranResult.status === 'fulfilled';
+  if (!intentPlaying) {
+    sessionActive = false;
+    if (audio && !audio.paused) audio.pause();
+    stopMeccaAmbience();
+    setState({ playing: false, unlocked: sessionUnlocked, loading: false });
+    return false;
+  }
 
+  if (!started) {
+    intentPlaying = false;
+    sessionActive = false;
+    stopMeccaAmbience();
+    setState({
+      playing: false,
+      unlocked: sessionUnlocked,
+      loading: false,
+      error: 'Tap to start',
+    });
+    return false;
+  }
+
+  sessionActive = true;
+  sessionUnlocked = true;
+  userPaused = false;
   setState({
-    playing: sessionActive,
+    playing: true,
+    unlocked: true,
     loading: false,
-    error: sessionActive ? null : 'Tap the wave button to start',
+    error: null,
   });
 
+  if (ambienceResult.status !== 'fulfilled') {
+    fadeMeccaAmbienceIn(fadeSec).catch(() => {});
+  }
+
+  return true;
+}
+
+async function applyPlaybackIntent(opts = {}) {
+  if (syncing) return;
+  syncing = true;
+  try {
+    while (true) {
+      if (intentPlaying && !sessionActive) {
+        const ok = await startSession(opts);
+        if (!ok) {
+          intentPlaying = false;
+          break;
+        }
+        continue;
+      }
+      if (!intentPlaying && sessionActive) {
+        await pauseMediaSession();
+        continue;
+      }
+      break;
+    }
+  } finally {
+    syncing = false;
+  }
+}
+
+export async function resumeMediaSession(opts = {}) {
+  intentPlaying = true;
+  userPaused = false;
+  await applyPlaybackIntent(opts);
   return sessionActive;
 }
 
 export async function pauseMediaSession() {
-  if (!sessionActive) return;
+  if (!sessionActive && !intentPlaying) return;
   sessionActive = false;
-  setState({ playing: false, loading: false });
+  intentPlaying = false;
+  userPaused = true;
+  setState({ playing: false, unlocked: sessionUnlocked, loading: false });
 
   const jobs = [fadeMeccaAmbienceOut()];
 
@@ -441,27 +510,29 @@ export async function pauseMediaSession() {
       (async () => {
         await ensureQuranGraph(audio);
         setReverbBypass(true);
-        await fadeQuranVolume(0);
+        await fadeQuranVolume(0, 180);
         audio.pause();
         setQuranLevel(QURAN_VOLUME);
         setReverbBypass(false);
       })()
     );
+  } else {
+    stopMeccaAmbience();
   }
 
   await Promise.allSettled(jobs);
 }
 
-export async function startMediaSession() {
-  return resumeMediaSession();
+export async function startMediaSession(opts) {
+  return resumeMediaSession(opts);
 }
 
-export async function startQuranPlayback() {
-  return resumeMediaSession();
+export async function startQuranPlayback(opts) {
+  return resumeMediaSession(opts);
 }
 
-export async function playQuran() {
-  return resumeMediaSession();
+export async function playQuran(opts) {
+  return resumeMediaSession(opts);
 }
 
 export function stopQuran() {
@@ -469,19 +540,18 @@ export function stopQuran() {
 }
 
 export async function toggleQuran() {
-  if (toggling) return;
-  toggling = true;
-  try {
-    if (sessionActive) await pauseMediaSession();
-    else await resumeMediaSession();
-  } finally {
-    toggling = false;
-  }
+  const heardAsOn = sessionActive || intentPlaying;
+  intentPlaying = !heardAsOn;
+  userPaused = !intentPlaying;
+  await applyPlaybackIntent();
 }
 
 export function destroyQuranPlayer() {
   sessionActive = false;
-  toggling = false;
+  sessionUnlocked = false;
+  userPaused = false;
+  intentPlaying = false;
+  syncing = false;
   teardownQuranGraph();
   if (audio) {
     audio.pause();
@@ -506,6 +576,7 @@ export function destroyQuranPlayer() {
     surah: null,
     surahName: '',
     reciterName: '',
+    unlocked: false,
     error: null,
   });
 }

@@ -12,6 +12,8 @@ export function createScene({ canvas, config, isMobile, reduced }) {
     canvas,
     antialias: false,
     powerPreference: 'high-performance',
+    // Required so 2D nav-blur canvases can sample the scene on iOS Safari.
+    preserveDrawingBuffer: true,
   });
   renderer.setClearColor(0x050507, 1);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.5 : 2));

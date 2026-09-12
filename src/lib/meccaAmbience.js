@@ -26,6 +26,7 @@ let noiseBuffer = null;
 let activeVoices = 0;
 let rainBedNodes = [];
 let rainDropletTimer = null;
+let liveSources = [];
 
 function easeCos(u) {
   return 0.5 - 0.5 * Math.cos(Math.PI * Math.min(1, Math.max(0, u)));
@@ -525,6 +526,7 @@ function createSwiftScream(time, opts) {
   modulator.stop(stopAt);
   harmonic.stop(stopAt);
   noise.stop(stopAt);
+  liveSources.push(carrier, modulator, harmonic, noise);
 
   if (countVoice) releaseVoice(duration + 0.05);
   return true;
@@ -688,6 +690,13 @@ function waitMs(ms) {
   return new Promise((resolve) => { window.setTimeout(resolve, ms); });
 }
 
+function stopLiveSources() {
+  liveSources.forEach((node) => {
+    try { node.stop(); } catch { /* already stopped */ }
+  });
+  liveSources = [];
+}
+
 export function stopMeccaAmbience() {
   isPlaying = false;
   if (swiftTimer) {
@@ -695,16 +704,23 @@ export function stopMeccaAmbience() {
     swiftTimer = null;
   }
   stopRainBed();
+  stopLiveSources();
   activeVoices = 0;
+  if (masterGain && audioCtx) {
+    const t = audioCtx.currentTime;
+    masterGain.gain.cancelScheduledValues(t);
+    masterGain.gain.setValueAtTime(0.0001, t);
+  }
 }
 
-export async function fadeMeccaAmbienceIn() {
+export async function fadeMeccaAmbienceIn(fadeSec = FADE_SEC) {
   const started = await startMeccaAmbience();
   if (!started || !masterGain || !audioCtx) return false;
   const t = audioCtx.currentTime;
+  const duration = Math.max(0.2, fadeSec);
   masterGain.gain.cancelScheduledValues(t);
   masterGain.gain.setValueAtTime(0.0001, t);
-  masterGain.gain.exponentialRampToValueAtTime(MASTER_GAIN, t + FADE_SEC);
+  masterGain.gain.exponentialRampToValueAtTime(MASTER_GAIN, t + duration);
   return true;
 }
 
@@ -714,12 +730,18 @@ export async function fadeMeccaAmbienceOut() {
     return;
   }
   const t = audioCtx.currentTime;
-  const level = masterGain.gain.value;
+  const level = Math.max(masterGain.gain.value, 0.0001);
   masterGain.gain.cancelScheduledValues(t);
   masterGain.gain.setValueAtTime(level, t);
-  masterGain.gain.exponentialRampToValueAtTime(0.0001, t + FADE_SEC);
-  await waitMs(FADE_SEC * 1000 + 40);
-  stopMeccaAmbience();
+  masterGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
+  stopLiveSources();
+  if (swiftTimer) {
+    clearTimeout(swiftTimer);
+    swiftTimer = null;
+  }
+  isPlaying = false;
+  stopRainBed();
+  activeVoices = 0;
 }
 
 export function destroyMeccaAmbience() {

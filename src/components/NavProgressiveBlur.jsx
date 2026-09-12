@@ -18,11 +18,12 @@ export default function NavProgressiveBlur() {
   return (
     <div ref={shellRef} className="nav-progressive-blur" aria-hidden>
       {NAV_PROGRESSIVE_BLUR_LAYERS.map((layer, index) => (
-        <canvas
+        <div
           key={layer.className}
-          ref={layerRefs.current[index]}
           className={`nav-progressive-blur__layer ${layer.className}`}
-        />
+        >
+          <canvas ref={layerRefs.current[index]} />
+        </div>
       ))}
     </div>
   );
