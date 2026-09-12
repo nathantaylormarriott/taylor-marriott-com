@@ -225,7 +225,7 @@ main {
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 0.55rem;
   padding: 0;
   border: none;
@@ -241,9 +241,11 @@ main {
 }
 .head-quran__label {
   display: inline-grid;
-  place-items: center;
+  place-items: center start;
   isolation: isolate;
+  flex-shrink: 0;
 }
+.head-quran__sizer,
 .head-quran__copy,
 .head-quran__short {
   grid-area: 1 / 1;
@@ -254,6 +256,11 @@ main {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   line-height: 1;
+}
+.head-quran__sizer {
+  visibility: hidden;
+  pointer-events: none;
+  user-select: none;
 }
 .head-quran__copy {
   opacity: 1;
@@ -293,6 +300,9 @@ main {
     opacity 0.56s cubic-bezier(0.22, 1, 0.36, 1) 0.42s,
     filter 0.56s cubic-bezier(0.22, 1, 0.36, 1) 0.42s,
     visibility 0s linear 0.42s;
+}
+.head-quran .audio-wave {
+  flex-shrink: 0;
 }
 .audio-wave {
   display: block;

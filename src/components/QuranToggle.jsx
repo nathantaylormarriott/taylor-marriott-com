@@ -46,6 +46,7 @@ export default function QuranToggle({ className = '' }) {
     >
       <AudioWave active={player.playing} />
       <span className="head-quran__label">
+        <span className="head-quran__sizer" aria-hidden="true">Listen to Quran</span>
         <span className="head-quran__copy">Listen to Quran</span>
         <span className="head-quran__short" aria-hidden={!unlocked}>Quran</span>
       </span>
