@@ -248,6 +248,23 @@
         var ORIGIN = 'https://taylor-marriott.com';
         var path = (location.pathname || '/').replace(/\/+$/, '') || '/';
         var routes = {
+          '/for-muslims': {
+            title: 'For Muslims — Web Design & Digital Services | Taylor-Marriott',
+            description:
+              'Taylor-Marriott builds thoughtful websites, marketing and digital infrastructure for Muslim businesses and communities across the Midlands.',
+            canonical: ORIGIN + '/for-muslims',
+            jsonLd: {
+              '@type': 'WebPage',
+              '@id': ORIGIN + '/for-muslims#webpage',
+              url: ORIGIN + '/for-muslims',
+              name: 'Taylor-Marriott for Muslims',
+              description:
+                'Islamic-oriented digital studio services for Muslim businesses and communities in the Midlands.',
+              isPartOf: { '@id': ORIGIN + '/#website' },
+              about: { '@id': ORIGIN + '/#business' },
+              inLanguage: 'en-GB'
+            }
+          },
           '/contact': {
             title: 'Contact Taylor-Marriott | Web Design & Digital Marketing | Midlands',
             description:

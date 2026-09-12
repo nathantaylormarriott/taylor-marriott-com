@@ -13,6 +13,9 @@ export const CONFIG = {
 /** Set to true to restore portfolio, arrival, closing, and footer on the home page. */
 export const HOME_BELOW_HERO = false;
 
+/** Quran playback + header toggle on /for-muslims. */
+export const QURAN_ENABLED = true;
+
 export const CLIENT_PORTAL_URL = 'https://portal.taylor-marriott.com';
 
 /** Client portal gate — simple download unlock (not hardened auth). */
@@ -36,5 +39,8 @@ export const SCENE_THEMES = {
   },
   contact: {
     nebula: { colorA: '#C4A1FF', colorB: '#5CE1B8', intensity: 0.42 },
+  },
+  muslims: {
+    nebula: { colorA: '#1F9D6A', colorB: '#D4AF37', intensity: 0.4 },
   },
 };

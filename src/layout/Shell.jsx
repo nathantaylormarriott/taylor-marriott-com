@@ -2,7 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useLayoutEffe
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import gsap from 'gsap';
 import { createScene } from '../lib/scene';
-import { CONFIG, HOME_BELOW_HERO, SCENE_THEMES } from '../config';
+import { CONFIG, HOME_BELOW_HERO, QURAN_ENABLED, SCENE_THEMES } from '../config';
 import { getGlassSurfaceCount, setGlassSceneApi } from '../lib/glassBackdropRegistry';
 import taylorMarriottWordmark from '../assets/taylor-marriott-wordmark.png';
 import ContactLink from '../components/ContactLink';
@@ -10,6 +10,7 @@ import ContactPanel from '../components/ContactPanel';
 import PortalLink from '../components/PortalLink';
 import PortalLoginPanel from '../components/PortalLoginPanel';
 import NavProgressiveBlur from '../components/NavProgressiveBlur';
+import QuranToggle from '../components/QuranToggle';
 
 const ShellContext = createContext(null);
 
@@ -136,6 +137,7 @@ export default function Shell() {
   const location = useLocation();
   const navigate = useNavigate();
   const isContactRoute = location.pathname === '/contact';
+  const isForMuslimsRoute = location.pathname === '/for-muslims';
   const isAdminRoute = location.pathname === '/admin' || location.pathname === '/ops';
 
   useEffect(() => {
@@ -235,26 +237,34 @@ export default function Shell() {
       document.title = 'Admin — Taylor-Marriott';
       return;
     }
+    if (isForMuslimsRoute) {
+      document.title = 'For Muslims — Taylor-Marriott';
+      return;
+    }
     document.title = isContactRoute
       ? 'Contact — Taylor-Marriott'
       : 'Taylor-Marriott — Design & Build';
-  }, [overlayMode, isContactRoute, isAdminRoute]);
+  }, [overlayMode, isContactRoute, isForMuslimsRoute, isAdminRoute]);
 
   useEffect(() => {
     if (overlayOpen) return;
-    const theme = (isContactRoute || isAdminRoute) ? SCENE_THEMES.contact.nebula : SCENE_THEMES.home.nebula;
+    const theme = isForMuslimsRoute
+      ? SCENE_THEMES.muslims.nebula
+      : (isContactRoute || isAdminRoute)
+        ? SCENE_THEMES.contact.nebula
+        : SCENE_THEMES.home.nebula;
     sceneApiRef.current?.setNebula?.(theme);
-  }, [isContactRoute, isAdminRoute, overlayOpen]);
+  }, [isContactRoute, isForMuslimsRoute, isAdminRoute, overlayOpen]);
 
   useEffect(() => {
     const lockHomeScroll = isMobile && !HOME_BELOW_HERO;
     document.documentElement.classList.toggle('overlay-open', overlayOpen);
-    document.documentElement.classList.toggle('contact-route', isContactRoute || isAdminRoute);
-    document.documentElement.classList.toggle('site-scroll-lock', lockHomeScroll && !overlayOpen && !isContactRoute && !isAdminRoute);
+    document.documentElement.classList.toggle('contact-route', isContactRoute || isAdminRoute || isForMuslimsRoute);
+    document.documentElement.classList.toggle('site-scroll-lock', lockHomeScroll && !overlayOpen && !isContactRoute && !isAdminRoute && !isForMuslimsRoute);
     return () => {
       document.documentElement.classList.remove('overlay-open', 'contact-route', 'site-scroll-lock');
     };
-  }, [isMobile, overlayOpen, isContactRoute, isAdminRoute]);
+  }, [isMobile, overlayOpen, isContactRoute, isForMuslimsRoute, isAdminRoute]);
 
   useLayoutEffect(() => {
     if (!overlayMode) return;
@@ -393,7 +403,7 @@ export default function Shell() {
             <img src={taylorMarriottWordmark} alt="Taylor-Marriott" width={180} height={24} />
           </Link>
           <div className="site-head-actions">
-            {!overlayOpen && !isContactRoute && !isAdminRoute && (
+            {!overlayOpen && !isContactRoute && !isForMuslimsRoute && !isAdminRoute && (
               <PortalLink className="head-portal head-action">Client Portal</PortalLink>
             )}
             {overlayOpen ? (
@@ -404,6 +414,11 @@ export default function Shell() {
               <Link to="/" className="head-contact head-action">
                 Home
               </Link>
+            ) : isForMuslimsRoute ? (
+              <>
+                {QURAN_ENABLED && <QuranToggle />}
+                <ContactLink className="head-contact head-action">Contact</ContactLink>
+              </>
             ) : (
               <ContactLink className="head-contact head-action">Contact</ContactLink>
             )}
