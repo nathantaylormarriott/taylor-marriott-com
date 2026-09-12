@@ -156,7 +156,7 @@ main {
 .site-head-actions {
   display: flex;
   align-items: center;
-  gap: 0.65rem;
+  gap: 1.25rem;
   flex-shrink: 0;
 }
 .head-portal {

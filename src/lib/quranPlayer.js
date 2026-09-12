@@ -11,7 +11,7 @@ export { QURAN_ENABLED };
 /** Saad Al-Ghamdi — gapless surah audio on Quranicaudio CDN. */
 const RECITER_NAME = 'Saad Al-Ghamdi';
 const AUDIO_BASE = 'https://download.quranicaudio.com/quran/sa3d_al-ghaamidi/complete';
-const QURAN_VOLUME = 0.22;
+const QURAN_VOLUME = 0.32;
 const PREFETCH_AT = 0.78;
 const FADE_MS = 550;
 

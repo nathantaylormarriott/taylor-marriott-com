@@ -1,9 +1,11 @@
 /** Distant mosque swift ambience — bioacoustic Web Audio synthesis. */
 
-const MASTER_GAIN = 1.32;
-const CLOSE_PEAK = 0.1;
-const MID_PEAK = 0.061;
-const FAR_PEAK = 0.034;
+const MASTER_GAIN = 1.25;
+const SWIFT_PITCH_MULT = 1.05;
+const SWIFT_GAIN_MULT = 0.84;
+const CLOSE_PEAK = 0.1 * SWIFT_GAIN_MULT;
+const MID_PEAK = 0.061 * SWIFT_GAIN_MULT;
+const FAR_PEAK = 0.034 * SWIFT_GAIN_MULT;
 const MAX_VOICES = 3;
 const WET_IDLE = 0.2;
 const WET_DUCKED = 0.11;
@@ -13,6 +15,7 @@ const FADE_SEC = 0.55;
 let audioCtx = null;
 let isPlaying = false;
 let swiftTimer = null;
+let brownNoiseBuffer = null;
 let reverbNode = null;
 let masterGain = null;
 let dryGain = null;
@@ -21,7 +24,8 @@ let compressor = null;
 let unlockBound = false;
 let noiseBuffer = null;
 let activeVoices = 0;
-let windBedNodes = [];
+let rainBedNodes = [];
+let rainDropletTimer = null;
 
 function easeCos(u) {
   return 0.5 - 0.5 * Math.cos(Math.PI * Math.min(1, Math.max(0, u)));
@@ -67,6 +71,21 @@ function createGrandCourtyardReverb(ctx) {
   const node = ctx.createConvolver();
   node.buffer = impulse;
   return node;
+}
+
+function getBrownNoiseBuffer(ctx) {
+  if (brownNoiseBuffer) return brownNoiseBuffer;
+  const length = Math.floor(ctx.sampleRate * 3.2);
+  const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  let last = 0;
+  for (let i = 0; i < length; i++) {
+    const white = Math.random() * 2 - 1;
+    last = (last + white * 0.018) * 0.9985;
+    data[i] = last * 4.2;
+  }
+  brownNoiseBuffer = buffer;
+  return brownNoiseBuffer;
 }
 
 function getNoiseBuffer(ctx) {
@@ -143,6 +162,18 @@ function connectVoice(node, dryAmount) {
   wetSend.connect(reverbNode);
 }
 
+/** Direct atmosphere bus — rain (bypasses swift dry/wet staging). */
+function connectAtmosphere(node, dryLevel = 0.55, wetLevel = 0.38) {
+  const drySend = audioCtx.createGain();
+  drySend.gain.value = dryLevel;
+  const wetSend = audioCtx.createGain();
+  wetSend.gain.value = wetLevel;
+  node.connect(drySend);
+  node.connect(wetSend);
+  drySend.connect(masterGain);
+  wetSend.connect(reverbNode);
+}
+
 function setPannerPos(panner, x, y, z, time, ramp) {
   if (panner.positionX) {
     if (ramp) {
@@ -181,47 +212,165 @@ function releaseVoice(afterSec) {
   }, Math.max(50, afterSec * 1000));
 }
 
-function startWindBed() {
-  if (!audioCtx || windBedNodes.length) return;
-
-  const noise = getNoiseBuffer(audioCtx);
-  const now = audioCtx.currentTime;
-
-  const windSrc = audioCtx.createBufferSource();
-  windSrc.buffer = noise;
-  windSrc.loop = true;
-
-  const windBp = audioCtx.createBiquadFilter();
-  windBp.type = 'bandpass';
-  windBp.frequency.value = 1650;
-  windBp.Q.value = 0.55;
-
-  const windGain = audioCtx.createGain();
-  windGain.gain.setValueAtTime(0.0001, now);
-  windGain.gain.exponentialRampToValueAtTime(0.0072, now + 4);
-
-  const windLfo = audioCtx.createOscillator();
-  windLfo.type = 'sine';
-  windLfo.frequency.value = 0.07 + Math.random() * 0.04;
-  const windLfoDepth = audioCtx.createGain();
-  windLfoDepth.gain.value = 0.0026;
-  windLfo.connect(windLfoDepth);
-  windLfoDepth.connect(windGain.gain);
-
-  windSrc.connect(windBp);
-  windBp.connect(windGain);
-  connectVoice(windGain, 0.68);
-
-  windSrc.start(now);
-  windLfo.start(now);
-  windBedNodes = [windSrc, windLfo];
+function fadeAtmosphereGain(gain, level, now, sec = 5) {
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(level, now + sec);
 }
 
-function stopWindBed() {
-  windBedNodes.forEach((node) => {
+function startRainBed() {
+  if (!audioCtx || rainBedNodes.length) return;
+
+  const noise = getNoiseBuffer(audioCtx);
+  const brown = getBrownNoiseBuffer(audioCtx);
+  const now = audioCtx.currentTime;
+  const nodes = [];
+
+  // Soft drizzle curtain — warm, low-mid wash
+  const curtainL = audioCtx.createBufferSource();
+  curtainL.buffer = brown;
+  curtainL.loop = true;
+  const curtainLpL = audioCtx.createBiquadFilter();
+  curtainLpL.type = 'lowpass';
+  curtainLpL.frequency.value = 1100;
+  curtainLpL.Q.value = 0.32;
+  const curtainHpL = audioCtx.createBiquadFilter();
+  curtainHpL.type = 'highpass';
+  curtainHpL.frequency.value = 160;
+  curtainHpL.Q.value = 0.28;
+  const curtainGainL = audioCtx.createGain();
+  fadeAtmosphereGain(curtainGainL, 0.44, now, 6);
+  curtainL.connect(curtainHpL);
+  curtainHpL.connect(curtainLpL);
+  curtainLpL.connect(curtainGainL);
+  const curtainPanL = audioCtx.createStereoPanner();
+  curtainPanL.pan.value = -0.22;
+  curtainGainL.connect(curtainPanL);
+  connectAtmosphere(curtainPanL, 0.022, 0.012);
+  nodes.push(curtainL);
+
+  const curtainR = audioCtx.createBufferSource();
+  curtainR.buffer = brown;
+  curtainR.loop = true;
+  const curtainLpR = audioCtx.createBiquadFilter();
+  curtainLpR.type = 'lowpass';
+  curtainLpR.frequency.value = 1250;
+  curtainLpR.Q.value = 0.3;
+  const curtainHpR = audioCtx.createBiquadFilter();
+  curtainHpR.type = 'highpass';
+  curtainHpR.frequency.value = 175;
+  curtainHpR.Q.value = 0.28;
+  const curtainGainR = audioCtx.createGain();
+  fadeAtmosphereGain(curtainGainR, 0.38, now, 6.2);
+  curtainR.connect(curtainHpR);
+  curtainHpR.connect(curtainLpR);
+  curtainLpR.connect(curtainGainR);
+  const curtainPanR = audioCtx.createStereoPanner();
+  curtainPanR.pan.value = 0.22;
+  curtainGainR.connect(curtainPanR);
+  connectAtmosphere(curtainPanR, 0.02, 0.011);
+  nodes.push(curtainR);
+
+  // Light patter on stone — very subtle
+  const splatSrc = audioCtx.createBufferSource();
+  splatSrc.buffer = noise;
+  splatSrc.loop = true;
+  const splatBp = audioCtx.createBiquadFilter();
+  splatBp.type = 'bandpass';
+  splatBp.frequency.value = 720;
+  splatBp.Q.value = 0.48;
+  const splatGain = audioCtx.createGain();
+  fadeAtmosphereGain(splatGain, 0.23, now, 6.5);
+  splatSrc.connect(splatBp);
+  splatBp.connect(splatGain);
+  connectAtmosphere(splatGain, 0.012, 0.007);
+  nodes.push(splatSrc);
+
+  // Soft air — barely there
+  const hissSrc = audioCtx.createBufferSource();
+  hissSrc.buffer = noise;
+  hissSrc.loop = true;
+  const hissHp = audioCtx.createBiquadFilter();
+  hissHp.type = 'highpass';
+  hissHp.frequency.value = 3200;
+  hissHp.Q.value = 0.28;
+  const hissLp = audioCtx.createBiquadFilter();
+  hissLp.type = 'lowpass';
+  hissLp.frequency.value = 4200;
+  hissLp.Q.value = 0.32;
+  const hissGain = audioCtx.createGain();
+  fadeAtmosphereGain(hissGain, 0.16, now, 5);
+  hissSrc.connect(hissHp);
+  hissHp.connect(hissLp);
+  hissLp.connect(hissGain);
+  connectAtmosphere(hissGain, 0.008, 0.004);
+  nodes.push(hissSrc);
+
+  curtainL.start(now);
+  curtainR.start(now);
+  splatSrc.start(now);
+  hissSrc.start(now);
+  rainBedNodes = nodes;
+  startRainDroplets();
+}
+
+function playRainDroplet(time) {
+  if (!audioCtx || audioCtx.state !== 'running') return;
+
+  const src = audioCtx.createBufferSource();
+  src.buffer = getNoiseBuffer(audioCtx);
+  src.loop = true;
+
+  const bp = audioCtx.createBiquadFilter();
+  bp.type = 'bandpass';
+  bp.frequency.setValueAtTime(900 + Math.random() * 1800, time);
+  bp.Q.setValueAtTime(1.4 + Math.random() * 1.6, time);
+
+  const gain = audioCtx.createGain();
+  const peak = 0.028 + Math.random() * 0.045;
+  const len = 0.018 + Math.random() * 0.04;
+  gain.gain.setValueAtTime(0.0001, time);
+  gain.gain.exponentialRampToValueAtTime(peak, time + 0.0012);
+  gain.gain.exponentialRampToValueAtTime(0.0001, time + len);
+
+  const panner = audioCtx.createStereoPanner();
+  panner.pan.setValueAtTime((Math.random() - 0.5) * 0.95, time);
+
+  src.connect(bp);
+  bp.connect(gain);
+  gain.connect(panner);
+  connectAtmosphere(panner, 0.01, 0.005);
+
+  src.start(time);
+  src.stop(time + len + 0.01);
+}
+
+function startRainDroplets() {
+  if (rainDropletTimer) return;
+
+  const tick = () => {
+    if (!isPlaying || !audioCtx) return;
+    const now = audioCtx.currentTime;
+    if (Math.random() < 0.72) {
+      const drops = Math.random() < 0.35 ? 2 : 1;
+      for (let i = 0; i < drops; i++) {
+        playRainDroplet(now + Math.random() * 0.08);
+      }
+    }
+    rainDropletTimer = window.setTimeout(tick, 95 + Math.random() * 210);
+  };
+
+  tick();
+}
+
+function stopRainBed() {
+  if (rainDropletTimer) {
+    clearTimeout(rainDropletTimer);
+    rainDropletTimer = null;
+  }
+  rainBedNodes.forEach((node) => {
     try { node.stop(); } catch { /* already stopped */ }
   });
-  windBedNodes = [];
+  rainBedNodes = [];
 }
 
 function makeTrajectory() {
@@ -413,12 +562,13 @@ function birdDistance() {
 
 function playBirdPass(time, dist, trajectory) {
   const duration = 0.44 + Math.random() * 0.34;
-  const endHz = dist.peakHz * (0.88 + Math.random() * 0.05);
+  const peakHz = dist.peakHz * SWIFT_PITCH_MULT;
+  const endHz = peakHz * (0.88 + Math.random() * 0.05);
   const traj = trajectory || makeTrajectory();
 
   return createSwiftScream(time, {
-    startHz: dist.startHz,
-    peakHz: dist.peakHz,
+    startHz: dist.startHz * SWIFT_PITCH_MULT,
+    peakHz,
     endHz,
     duration,
     peak: dist.peak,
@@ -473,7 +623,7 @@ function nextFlyoverDelay() {
 }
 
 function startFlockSimulation() {
-  startWindBed();
+  startRainBed();
   playKaabaFlyover();
 
   function loop() {
@@ -544,7 +694,7 @@ export function stopMeccaAmbience() {
     clearTimeout(swiftTimer);
     swiftTimer = null;
   }
-  stopWindBed();
+  stopRainBed();
   activeVoices = 0;
 }
 
@@ -584,4 +734,5 @@ export function destroyMeccaAmbience() {
   wetGain = null;
   compressor = null;
   noiseBuffer = null;
+  brownNoiseBuffer = null;
 }
