@@ -13,6 +13,7 @@ export const CONTACT_INTRO =
   '.contact-inner:not(.contact-inner--success) .contact-intro-copy';
 export const CONTACT_MAIN =
   '.contact-inner:not(.contact-inner--success) .contact-main';
+export const CONTACT_HELLO = '.contact-hello-carousel';
 
 /** Page route timing — sequential out → pause → in (Yemen CTA pattern, not button CSS). */
 const FADE_OUT = CONFIG.transitionDuration * 0.68;
@@ -215,6 +216,12 @@ export function primeContactPanels() {
     x: CONTACT_X,
     filter: PAGE_BLUR,
   });
+  gsap.set(CONTACT_HELLO, {
+    autoAlpha: 0,
+    visibility: 'visible',
+    y: 22,
+    filter: 'blur(10px)',
+  });
 }
 
 export function primeIncomingContactPage() {
@@ -229,11 +236,12 @@ export function primeIncomingContactPage() {
 }
 
 export function revealContactPanelsInstant() {
-  gsap.killTweensOf([CONTACT_INTRO, CONTACT_MAIN]);
-  gsap.set([CONTACT_INTRO, CONTACT_MAIN], {
+  gsap.killTweensOf([CONTACT_INTRO, CONTACT_MAIN, CONTACT_HELLO]);
+  gsap.set([CONTACT_INTRO, CONTACT_MAIN, CONTACT_HELLO], {
     autoAlpha: 1,
     visibility: 'visible',
     x: 0,
+    y: 0,
     filter: 'none',
     clearProps: 'transform,filter',
   });
@@ -242,7 +250,7 @@ export function revealContactPanelsInstant() {
 /** Intro from left, form from right — blur + fade preserved. */
 export function animateContactEntrance({ onComplete, handoff = false } = {}) {
   ensureNavVisible();
-  gsap.killTweensOf([CONTACT_INTRO, CONTACT_MAIN]);
+  gsap.killTweensOf([CONTACT_INTRO, CONTACT_MAIN, CONTACT_HELLO]);
 
   const timeline = gsap.timeline({ onComplete });
   const revealAt = handoff ? HANDOFF_GAP : 0;
@@ -262,6 +270,14 @@ export function animateContactEntrance({ onComplete, handoff = false } = {}) {
     duration: FADE_IN,
     ease: CONFIG.ease,
   }, revealAt + 0.05);
+
+  timeline.to(CONTACT_HELLO, {
+    autoAlpha: 1,
+    y: 0,
+    filter: 'blur(0px)',
+    duration: FADE_IN * 1.12,
+    ease: CONFIG.ease,
+  }, revealAt + 0.14);
 
   return timeline;
 }
