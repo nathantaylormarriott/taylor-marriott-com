@@ -22,7 +22,16 @@ const FADE_IN = CONFIG.transitionDuration * 0.52;
 const HANDOFF_GAP = CONFIG.transitionDuration * 0.22;
 const FOOT_AFTER_NAV = 0.1;
 const PAGE_EASE_OUT = 'power2.in';
-const CONTACT_X = 3;
+const CONTACT_X = 1;
+const CONTACT_HELLO_Y = 4;
+const CONTACT_HELLO_REVEAL_OFFSET = 0.05;
+const CONTACT_ENTRANCE_BLUR = 'blur(6px)';
+const CONTACT_ENTRANCE_EASE = 'sine.out';
+const CONTACT_FADE_IN = FADE_IN * 1.38;
+const CONTACT_HELLO_FADE_IN = FADE_IN * 1.48;
+const CONTACT_HELLO_RAMP_LEAD = 0.18;
+
+export const CONTACT_HELLO_STOP_EVENT = 'contact-hello-stop';
 
 function footEl() {
   return document.querySelector('.for-muslims-foot');
@@ -208,19 +217,19 @@ export function primeContactPanels() {
     autoAlpha: 0,
     visibility: 'visible',
     x: -CONTACT_X,
-    filter: PAGE_BLUR,
+    filter: CONTACT_ENTRANCE_BLUR,
   });
   gsap.set(CONTACT_MAIN, {
     autoAlpha: 0,
     visibility: 'visible',
     x: CONTACT_X,
-    filter: PAGE_BLUR,
+    filter: CONTACT_ENTRANCE_BLUR,
   });
   gsap.set(CONTACT_HELLO, {
     autoAlpha: 0,
     visibility: 'visible',
-    y: 22,
-    filter: 'blur(10px)',
+    y: CONTACT_HELLO_Y,
+    filter: CONTACT_ENTRANCE_BLUR,
   });
 }
 
@@ -247,6 +256,12 @@ export function revealContactPanelsInstant() {
   });
 }
 
+/** Begin scroll ramp shortly after hello starts moving up. */
+export function contactHelloScrollRampStart(handoff = false) {
+  const revealAt = handoff ? HANDOFF_GAP : 0;
+  return revealAt + CONTACT_HELLO_REVEAL_OFFSET + CONTACT_HELLO_RAMP_LEAD;
+}
+
 /** Intro from left, form from right — blur + fade preserved. */
 export function animateContactEntrance({ onComplete, handoff = false } = {}) {
   ensureNavVisible();
@@ -259,32 +274,33 @@ export function animateContactEntrance({ onComplete, handoff = false } = {}) {
     autoAlpha: 1,
     x: 0,
     filter: 'blur(0px)',
-    duration: FADE_IN,
-    ease: CONFIG.ease,
+    duration: CONTACT_FADE_IN,
+    ease: CONTACT_ENTRANCE_EASE,
   }, revealAt);
 
   timeline.to(CONTACT_MAIN, {
     autoAlpha: 1,
     x: 0,
     filter: 'blur(0px)',
-    duration: FADE_IN,
-    ease: CONFIG.ease,
+    duration: CONTACT_FADE_IN,
+    ease: CONTACT_ENTRANCE_EASE,
   }, revealAt + 0.05);
 
   timeline.to(CONTACT_HELLO, {
     autoAlpha: 1,
     y: 0,
     filter: 'blur(0px)',
-    duration: FADE_IN * 1.12,
-    ease: CONFIG.ease,
-  }, revealAt + 0.14);
+    duration: CONTACT_HELLO_FADE_IN,
+    ease: CONTACT_ENTRANCE_EASE,
+  }, revealAt + CONTACT_HELLO_REVEAL_OFFSET);
 
   return timeline;
 }
 
 export function fadeContactPageOut({ onComplete } = {}) {
   ensureNavVisible();
-  gsap.killTweensOf([CONTACT_INTRO, CONTACT_MAIN, PAGE_CHROME]);
+  window.dispatchEvent(new Event(CONTACT_HELLO_STOP_EVENT));
+  gsap.killTweensOf([CONTACT_INTRO, CONTACT_MAIN, CONTACT_HELLO, PAGE_CHROME]);
 
   const timeline = gsap.timeline({
     onComplete: () => {
@@ -304,6 +320,14 @@ export function fadeContactPageOut({ onComplete } = {}) {
   timeline.to(CONTACT_MAIN, {
     autoAlpha: 0,
     x: CONTACT_X * 1.04,
+    filter: PAGE_BLUR,
+    duration: FADE_OUT,
+    ease: PAGE_EASE_OUT,
+  }, 0);
+
+  timeline.to(CONTACT_HELLO, {
+    autoAlpha: 0,
+    y: CONTACT_HELLO_Y * 1.04,
     filter: PAGE_BLUR,
     duration: FADE_OUT,
     ease: PAGE_EASE_OUT,

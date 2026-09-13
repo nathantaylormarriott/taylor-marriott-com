@@ -1,5 +1,9 @@
 import React, { useLayoutEffect, useMemo, useRef } from 'react';
 import gsap from 'gsap';
+import {
+  CONTACT_HELLO_STOP_EVENT,
+  contactHelloScrollRampStart,
+} from '../lib/pageTransition';
 
 const HELLOS = [
   { text: 'Hello', lang: 'en' },
@@ -16,10 +20,13 @@ const HELLOS = [
 ];
 
 const PX_PER_SEC = 24;
+const RAMP_S = 3.2;
 
-export default function ContactHelloCarousel({ reduced = false }) {
+export default function ContactHelloCarousel({ reduced = false, entranceHandoff = false }) {
   const trackRef = useRef(null);
-  const tweenRef = useRef(null);
+  const rampTweenRef = useRef(null);
+  const scrollTimerRef = useRef(null);
+  const scrollStateRef = useRef({ speed: 0, x: 0, segment: 0 });
 
   const items = useMemo(() => [...HELLOS, ...HELLOS], []);
 
@@ -27,37 +34,70 @@ export default function ContactHelloCarousel({ reduced = false }) {
     const track = trackRef.current;
     if (!track) return undefined;
 
-    tweenRef.current?.kill();
-    gsap.set(track, { x: 0 });
+    const stopScroll = () => {
+      if (scrollTimerRef.current) {
+        window.clearTimeout(scrollTimerRef.current);
+        scrollTimerRef.current = null;
+      }
+      rampTweenRef.current?.kill();
+      rampTweenRef.current = null;
+      gsap.ticker.remove(tick);
+      scrollStateRef.current.speed = 0;
+    };
 
-    if (reduced) return undefined;
+    const tick = () => {
+      const state = scrollStateRef.current;
+      if (state.speed <= 0 || state.segment <= 0) return;
 
-    const start = () => {
+      state.x += state.speed * (gsap.ticker.deltaRatio() / 60);
+      if (state.x >= state.segment) state.x %= state.segment;
+      gsap.set(track, { x: -state.x });
+    };
+
+    const startScrollRamp = () => {
       const segment = track.scrollWidth / 2;
       if (!segment) return;
 
-      tweenRef.current = gsap.to(track, {
-        x: -segment,
-        duration: segment / PX_PER_SEC,
-        ease: 'none',
-        repeat: -1,
+      scrollStateRef.current.segment = segment;
+      scrollStateRef.current.x = 0;
+      scrollStateRef.current.speed = 0;
+      gsap.set(track, { x: 0 });
+
+      gsap.ticker.add(tick);
+      rampTweenRef.current = gsap.to(scrollStateRef.current, {
+        speed: PX_PER_SEC,
+        duration: RAMP_S,
+        ease: 'power2.out',
       });
     };
 
-    start();
+    stopScroll();
+    gsap.set(track, { x: 0 });
+
+    if (reduced) return stopScroll;
+
+    scrollTimerRef.current = window.setTimeout(
+      startScrollRamp,
+      contactHelloScrollRampStart(entranceHandoff) * 1000,
+    );
 
     const onResize = () => {
-      tweenRef.current?.kill();
+      const wasMoving = scrollStateRef.current.speed > 0;
+      stopScroll();
       gsap.set(track, { x: 0 });
-      start();
+      if (wasMoving) startScrollRamp();
     };
 
+    const onPageExit = () => stopScroll();
+
     window.addEventListener('resize', onResize);
+    window.addEventListener(CONTACT_HELLO_STOP_EVENT, onPageExit);
     return () => {
       window.removeEventListener('resize', onResize);
-      tweenRef.current?.kill();
+      window.removeEventListener(CONTACT_HELLO_STOP_EVENT, onPageExit);
+      stopScroll();
     };
-  }, [reduced]);
+  }, [entranceHandoff, reduced]);
 
   return (
     <div

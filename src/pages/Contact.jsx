@@ -19,6 +19,7 @@ export default function Contact() {
     finishRouteTransition,
   } = useShell();
   const entranceRan = useRef(false);
+  const entranceHandoffRef = useRef(contactEntranceFromRouteRef.current);
 
   useLayoutEffect(() => {
     if (entranceRan.current) return;
@@ -54,7 +55,7 @@ export default function Contact() {
   return (
     <main className="contact-page">
       <ContactPanel onClose={handleClose} />
-      <ContactHelloCarousel reduced={reduced} />
+      <ContactHelloCarousel reduced={reduced} entranceHandoff={entranceHandoffRef.current} />
     </main>
   );
 }

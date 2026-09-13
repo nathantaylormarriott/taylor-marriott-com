@@ -1137,23 +1137,25 @@ main {
   padding: 0 0 clamp(0.35rem, 0.75vh, 0.55rem);
   pointer-events: none;
   overflow: hidden;
-  opacity: 0;
-  transform: translateY(22px);
-  filter: blur(10px);
-  will-change: transform, opacity, filter;
 }
 .contact-hello-carousel__viewport {
   width: 100%;
   overflow: hidden;
   line-height: 1.08;
-  -webkit-mask-image:
-    linear-gradient(90deg, transparent 0%, #000 8%, #000 92%, transparent 100%),
-    linear-gradient(to top, transparent 0%, #000 14%, #000 100%);
-  mask-image:
-    linear-gradient(90deg, transparent 0%, #000 8%, #000 92%, transparent 100%),
-    linear-gradient(to top, transparent 0%, #000 14%, #000 100%);
-  -webkit-mask-composite: source-in;
-  mask-composite: intersect;
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    #000 8%,
+    #000 92%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    #000 8%,
+    #000 92%,
+    transparent 100%
+  );
 }
 .contact-hello-carousel__track {
   display: flex;
