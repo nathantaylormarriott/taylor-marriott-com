@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef } from 'react';
 import gsap from 'gsap';
 import { CONFIG } from '../config';
-import { revealHeroTitle, runHeroEntrance } from '../lib/heroReveal';
+import { getHeroHeadEls, revealHeroNav, revealHeroTitle, runHeroEntrance } from '../lib/heroReveal';
 import { useShell } from '../layout/Shell';
 import { SplitWords } from '../components/shared';
 import { destroyMeccaAmbience } from '../lib/meccaAmbience';
@@ -44,7 +44,6 @@ export default function ForMuslims() {
     const root = mainRef.current;
     if (!root) return undefined;
 
-    let entranceFrame = 0;
     let heroFallbackTimer = 0;
 
     const ctx = gsap.context(() => {
@@ -52,7 +51,7 @@ export default function ForMuslims() {
 
       const startHeroEntrance = () => {
         const footEl = root.querySelector('.for-muslims-foot');
-        const headEls = containerRef.current?.querySelectorAll('.logo, .head-action');
+        const headEls = getHeroHeadEls(containerRef.current);
         const { fallbackMs } = runHeroEntrance({
           scope: root,
           headEls,
@@ -60,26 +59,22 @@ export default function ForMuslims() {
           reduced,
           onComplete: () => window.clearTimeout(heroFallbackTimer),
         });
-        heroFallbackTimer = window.setTimeout(() => revealHeroTitle(root), fallbackMs || 4200);
+        heroFallbackTimer = window.setTimeout(() => {
+          const stuckWords = root.querySelector('.hero-title .split-word[style*="opacity: 0"]');
+          const stuckNav = containerRef.current?.querySelector('.logo[style*="opacity: 0"]');
+          if (stuckWords) revealHeroTitle(root);
+          if (stuckNav) revealHeroNav(containerRef.current);
+        }, fallbackMs || 5200);
       };
 
-      entranceFrame = requestAnimationFrame(startHeroEntrance);
+      startHeroEntrance();
     }, root);
 
     return () => {
-      cancelAnimationFrame(entranceFrame);
       window.clearTimeout(heroFallbackTimer);
       ctx.revert();
       revealHeroTitle(root);
-      gsap.set(containerRef.current?.querySelectorAll('.logo, .head-action'), {
-        autoAlpha: 1,
-        opacity: 1,
-        visibility: 'visible',
-        y: 0,
-        filter: 'none',
-        pointerEvents: 'auto',
-        clearProps: 'transform,filter',
-      });
+      revealHeroNav(containerRef.current);
     };
   }, [reduced, containerRef]);
 

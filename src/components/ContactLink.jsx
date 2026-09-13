@@ -3,26 +3,19 @@ import { Link } from 'react-router-dom';
 import { useShell } from '../layout/Shell';
 
 export default function ContactLink({ className, children }) {
-  const { openContact, isMobile } = useShell();
-
-  if (isMobile) {
-    return (
-      <Link to="/contact" className={className}>
-        {children}
-      </Link>
-    );
-  }
+  const { beginPageRouteTransition, reduced } = useShell();
 
   return (
-    <a
-      href="#contact"
+    <Link
+      to="/contact"
       className={className}
       onClick={(e) => {
+        if (reduced) return;
         e.preventDefault();
-        openContact();
+        beginPageRouteTransition('/contact');
       }}
     >
       {children}
-    </a>
+    </Link>
   );
 }

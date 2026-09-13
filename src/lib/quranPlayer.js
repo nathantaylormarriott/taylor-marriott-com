@@ -11,8 +11,11 @@ export { QURAN_ENABLED };
 const RECITER_NAME = 'Saad Al-Ghamdi';
 const AUDIO_BASE = 'https://download.quranicaudio.com/quran/sa3d_al-ghaamidi/complete';
 const QURAN_VOLUME = 0.32;
+const QURAN_WET_LEVEL = 0.72;
+const QURAN_WET_SEND = 0.78;
 const PREFETCH_AT = 0.78;
 const FADE_MS = 550;
+const REVERB_FADE_OUT_MS = 140;
 export const GENTLE_FADE_MS = 3200;
 
 /** Surahs under ~10 min for this reciter (file size cap used when list was built). */
@@ -172,7 +175,7 @@ async function ensureQuranGraph(player) {
   dry.gain.value = 0.62;
 
   const wetSend = quranCtx.createGain();
-  wetSend.gain.value = 0.78;
+  wetSend.gain.value = QURAN_WET_SEND;
 
   const preDelay = quranCtx.createDelay(0.1);
   preDelay.delayTime.value = 0.036;
@@ -185,7 +188,7 @@ async function ensureQuranGraph(player) {
   wetTone.Q.value = 0.55;
 
   const wet = quranCtx.createGain();
-  wet.gain.value = 0.72;
+  wet.gain.value = QURAN_WET_LEVEL;
 
   quranGain = quranCtx.createGain();
   quranGain.gain.value = 0;
@@ -208,10 +211,8 @@ async function ensureQuranGraph(player) {
   }
 }
 
-function setReverbBypass(bypass) {
+function setReverbLevels(wetLevel, sendLevel) {
   if (!quranCtx) return;
-  const wetLevel = bypass ? 0 : 0.72;
-  const sendLevel = bypass ? 0 : 0.78;
   const now = quranCtx.currentTime;
   if (quranWet) {
     quranWet.gain.cancelScheduledValues(now);
@@ -221,6 +222,28 @@ function setReverbBypass(bypass) {
     quranWetSend.gain.cancelScheduledValues(now);
     quranWetSend.gain.setValueAtTime(sendLevel, now);
   }
+}
+
+function setReverbBypass(bypass) {
+  setReverbLevels(bypass ? 0 : QURAN_WET_LEVEL, bypass ? 0 : QURAN_WET_SEND);
+}
+
+function fadeQuranReverb(wetTarget, sendTarget, durationMs = REVERB_FADE_OUT_MS) {
+  if (!quranCtx || !quranWet || !quranWetSend) return Promise.resolve();
+
+  const now = quranCtx.currentTime;
+  const durationSec = Math.max(0.01, durationMs / 1000);
+
+  quranWet.gain.cancelScheduledValues(now);
+  quranWetSend.gain.cancelScheduledValues(now);
+  quranWet.gain.setValueAtTime(quranWet.gain.value, now);
+  quranWetSend.gain.setValueAtTime(quranWetSend.gain.value, now);
+  quranWet.gain.linearRampToValueAtTime(wetTarget, now + durationSec);
+  quranWetSend.gain.linearRampToValueAtTime(sendTarget, now + durationSec);
+
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, durationMs);
+  });
 }
 
 function fadeQuranVolume(target, duration = FADE_MS) {
@@ -509,13 +532,16 @@ export async function pauseMediaSession() {
     jobs.push(
       (async () => {
         await ensureQuranGraph(audio);
-        setReverbBypass(true);
-        await fadeQuranVolume(0, 180);
+        await Promise.all([
+          fadeQuranReverb(0, 0, REVERB_FADE_OUT_MS),
+          fadeQuranVolume(0, 180),
+        ]);
         audio.pause();
-        setQuranLevel(QURAN_VOLUME);
-        setReverbBypass(false);
       })()
     );
+  } else if (quranCtx) {
+    setReverbBypass(true);
+    setQuranLevel(0);
   } else {
     stopMeccaAmbience();
   }

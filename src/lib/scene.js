@@ -15,7 +15,7 @@ export function createScene({ canvas, config, isMobile, reduced }) {
     // Required so 2D nav-blur canvases can sample the scene on iOS Safari.
     preserveDrawingBuffer: true,
   });
-  renderer.setClearColor(0x050507, 1);
+  renderer.setClearColor(0x010102, 1);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.5 : 2));
   renderer.setSize(window.innerWidth, window.innerHeight);
 
@@ -68,6 +68,7 @@ export function createScene({ canvas, config, isMobile, reduced }) {
       uPixelRatio: { value: renderer.getPixelRatio() },
       uTintA: { value: colorA },
       uTintB: { value: colorB },
+      uStarBrightness: { value: 0.82 },
     },
     vertexShader: `
       uniform float uTime;
@@ -76,6 +77,7 @@ export function createScene({ canvas, config, isMobile, reduced }) {
       uniform float uPixelRatio;
       uniform vec3 uTintA;
       uniform vec3 uTintB;
+      uniform float uStarBrightness;
       attribute float aSize;
       attribute float aShade;
       attribute float aPhase;
@@ -87,13 +89,13 @@ export function createScene({ canvas, config, isMobile, reduced }) {
         vec4 mv = modelViewMatrix * vec4(pos, 1.0);
         float dist = -mv.z;
         gl_PointSize = max(aSize * uPixelRatio * (320.0 / dist), 1.0);
-        float twinkle = 0.78 + 0.22 * sin(uTime * 1.6 + aPhase * 6.2831);
+        float twinkle = 0.68 + 0.18 * sin(uTime * 1.6 + aPhase * 6.2831);
         float farFade  = smoothstep(uDepth, uDepth - 180.0, dist);
         float nearFade = smoothstep(2.0, 60.0, dist);
         vAlpha = twinkle * farFade * nearFade;
-        vec3 white = vec3(0.91, 0.93, 0.96);
+        vec3 white = vec3(0.76, 0.78, 0.82);
         vec3 tint = mix(uTintA, uTintB, step(0.5, aShade));
-        vColor = mix(white, tint, abs(aShade * 2.0 - 1.0) * 0.35);
+        vColor = mix(white, tint, abs(aShade * 2.0 - 1.0) * 0.3) * uStarBrightness;
         gl_Position = projectionMatrix * mv;
       }
     `,
@@ -102,7 +104,7 @@ export function createScene({ canvas, config, isMobile, reduced }) {
       varying vec3 vColor;
       void main() {
         float d = length(gl_PointCoord - 0.5);
-        float a = smoothstep(0.5, 0.08, d) * 0.5 + smoothstep(0.16, 0.0, d);
+        float a = smoothstep(0.5, 0.08, d) * 0.42 + smoothstep(0.16, 0.0, d);
         gl_FragColor = vec4(vColor, a * vAlpha);
       }
     `,
@@ -188,8 +190,8 @@ export function createScene({ canvas, config, isMobile, reduced }) {
         vec3 nebula = mix(uColorA, uColorB, smoothstep(0.3, 0.8, n2));
         float density = smoothstep(0.42, 0.95, (n1 + n2) * 0.55);
         float mask = smoothstep(1.25, 0.25, length(vUv - 0.5) * 2.0);
-        vec3 col = vec3(0.02, 0.02, 0.028);
-        col += vec3(0.106, 0.078, 0.22) * 0.5 * mask;
+        vec3 col = vec3(0.005, 0.005, 0.008);
+        col += vec3(0.09, 0.066, 0.19) * 0.22 * mask;
         col += nebula * density * mask * uIntensity;
         gl_FragColor = vec4(col, 1.0);
       }

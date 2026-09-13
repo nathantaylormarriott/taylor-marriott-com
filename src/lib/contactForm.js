@@ -23,10 +23,12 @@ export function getInvalidContactFields(form) {
 
 export function getContactFormData(form) {
   const companyEl = field(form, 'company');
+  const phoneEl = field(form, 'phone');
   return {
     'form-name': 'contact',
     name: field(form, 'name').value.trim(),
     email: field(form, 'email').value.trim(),
+    phone: phoneEl?.value.trim() ?? '',
     company: companyEl?.value.trim() ?? '',
     message: field(form, 'message').value.trim(),
   };

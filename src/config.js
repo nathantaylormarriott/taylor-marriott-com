@@ -35,12 +35,12 @@ export const CONTACT = {
 
 export const SCENE_THEMES = {
   home: {
-    nebula: { colorA: '#FF4D9D', colorB: '#46E5FF', intensity: 0.38 },
+    nebula: { colorA: '#FF4D9D', colorB: '#46E5FF', intensity: 0.24 },
   },
   contact: {
-    nebula: { colorA: '#C4A1FF', colorB: '#5CE1B8', intensity: 0.42 },
+    nebula: { colorA: '#C4A1FF', colorB: '#5CE1B8', intensity: 0.26 },
   },
   muslims: {
-    nebula: { colorA: '#1F9D6A', colorB: '#D4AF37', intensity: 0.4 },
+    nebula: { colorA: '#1F9D6A', colorB: '#D4AF37', intensity: 0.25 },
   },
 };

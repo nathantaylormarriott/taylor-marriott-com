@@ -1,6 +1,25 @@
 import gsap from 'gsap';
 import { CONFIG } from '../config';
 
+const HERO_WORD = {
+  reduced: { duration: 0.72, stagger: 0.065, y: 0, blur: 0, delay: 0 },
+  full: {
+    fadeDuration: 1.42,
+    motionDuration: 1.78,
+    stagger: 0.094,
+    y: 5,
+    blur: 8,
+    delay: 0.14,
+    fadeEase: 'sine.out',
+    motionEase: 'power2.out',
+  },
+};
+
+export function getHeroHeadEls(container) {
+  const root = container?.querySelector ? container : document;
+  return root.querySelectorAll('.logo, .site-head-actions');
+}
+
 /** Restore hero headline visibility after overlay close or interrupted entrances. */
 export function revealHeroTitle(scope = document) {
   const root = scope?.querySelector ? scope : document;
@@ -14,8 +33,8 @@ export function revealHeroTitle(scope = document) {
       opacity: 1,
       visibility: 'visible',
       y: 0,
-      filter: 'none',
-      clearProps: 'transform,filter',
+      filter: 'blur(0px)',
+      clearProps: 'transform,filter,willChange',
     });
   }
 
@@ -29,9 +48,32 @@ export function revealHeroTitle(scope = document) {
   }
 }
 
-function heroNavStart(wordCount, { wordStagger, wordDuration, reduced }) {
-  if (reduced) return wordDuration * 0.55;
-  return (wordCount - 1) * wordStagger + wordDuration * 0.68;
+export function revealHeroNav(container = document) {
+  const headEls = getHeroHeadEls(container);
+  if (!headEls.length) return;
+
+  gsap.killTweensOf(headEls);
+  gsap.set(headEls, {
+    autoAlpha: 1,
+    opacity: 1,
+    visibility: 'visible',
+    y: 0,
+    filter: 'none',
+    pointerEvents: 'auto',
+    clearProps: 'transform,filter',
+  });
+}
+
+function heroWordTiming(wordCount, reduced) {
+  const cfg = reduced ? HERO_WORD.reduced : HERO_WORD.full;
+  const span = wordCount > 1 ? (wordCount - 1) * cfg.stagger : 0;
+  const motionDuration = reduced ? cfg.duration : cfg.motionDuration;
+  const cascadeEnd = span + motionDuration;
+  const navStart = reduced
+    ? cascadeEnd * 0.5
+    : Math.max(0.65, span * 0.38 + motionDuration * 0.5);
+
+  return { cfg, span, cascadeEnd, navStart, motionDuration };
 }
 
 /** Word-by-word hero reveal; navbar (and optional footer) enter near the end. */
@@ -44,89 +86,96 @@ export function runHeroEntrance({
 }) {
   const root = scope?.querySelector ? scope : document;
   const heroWords = root.querySelectorAll('.hero-title .split-word');
+  const navEls = headEls?.length ? headEls : getHeroHeadEls(document);
 
   if (!heroWords.length) {
     revealHeroTitle(root);
+    revealHeroNav(document);
     onComplete?.();
     return { timeline: null, fallbackMs: 0 };
   }
 
-  const wordStagger = reduced ? 0.09 : 0.18;
-  const wordDuration = reduced ? 0.95 : 2.15;
+  const { cfg, navStart, cascadeEnd } = heroWordTiming(heroWords.length, reduced);
 
-  if (headEls?.length) {
-    gsap.set(headEls, { opacity: 0, pointerEvents: 'auto' });
+  if (navEls.length) {
+    gsap.set(navEls, {
+      autoAlpha: 0,
+      y: -8,
+      filter: 'blur(5px)',
+      pointerEvents: 'none',
+    });
   }
-  gsap.set(heroWords, { autoAlpha: 0 });
-  if (footEl) gsap.set(footEl, { autoAlpha: 0 });
-
-  const navStart = heroNavStart(heroWords.length, { wordStagger, wordDuration, reduced });
+  if (footEl) gsap.set(footEl, { autoAlpha: 0, y: 12, filter: 'blur(6px)' });
 
   const timeline = gsap.timeline({
+    delay: cfg.delay,
     onComplete: () => {
-      revealHeroTitle(root);
+      gsap.set(heroWords, { clearProps: 'willChange' });
+      revealHeroNav(document);
       onComplete?.();
     },
   });
 
   if (reduced) {
+    timeline.fromTo(heroWords,
+      { autoAlpha: 0 },
+      { autoAlpha: 1, duration: cfg.duration, stagger: cfg.stagger },
+      0,
+    );
+  } else {
+    const wordStagger = { each: cfg.stagger, from: 'start' };
+
+    gsap.set(heroWords, {
+      autoAlpha: 0,
+      opacity: 0,
+      y: cfg.y,
+      filter: `blur(${cfg.blur}px)`,
+      force3D: true,
+    });
+
+    // Soft fade first — words materialise before the rise/blur fully resolves.
     timeline.to(heroWords, {
       autoAlpha: 1,
-      duration: wordDuration,
+      opacity: 1,
+      duration: cfg.fadeDuration,
+      ease: cfg.fadeEase,
       stagger: wordStagger,
     }, 0);
 
-    if (headEls?.length) {
-      timeline.to(headEls, { opacity: 1, duration: 1.2 }, navStart);
-    }
-    if (footEl) {
-      timeline.to(footEl, { autoAlpha: 1, duration: 1.2 }, navStart + 0.1);
-    }
-  } else {
-    timeline.fromTo(heroWords,
-      { autoAlpha: 0, y: 16, filter: 'blur(9px)' },
-      {
-        autoAlpha: 1,
-        y: 0,
-        filter: 'blur(0px)',
-        duration: wordDuration,
-        ease: CONFIG.easeLong,
-        stagger: { each: wordStagger, from: 'start' },
-      },
-      0,
-    );
-
-    if (headEls?.length) {
-      timeline.fromTo(headEls,
-        { opacity: 0, y: -14, filter: 'blur(6px)' },
-        {
-          opacity: 1,
-          y: 0,
-          filter: 'blur(0px)',
-          duration: 2.4,
-          ease: CONFIG.easeLong,
-          pointerEvents: 'auto',
-        },
-        navStart,
-      );
-    }
-
-    if (footEl) {
-      timeline.fromTo(footEl,
-        { autoAlpha: 0, y: 16, filter: 'blur(8px)' },
-        {
-          autoAlpha: 1,
-          y: 0,
-          filter: 'blur(0px)',
-          duration: 2.0,
-          ease: CONFIG.easeLong,
-        },
-        navStart + 0.14,
-      );
-    }
+    timeline.to(heroWords, {
+      y: 0,
+      filter: 'blur(0px)',
+      duration: cfg.motionDuration,
+      ease: cfg.motionEase,
+      stagger: wordStagger,
+      force3D: true,
+    }, 0);
   }
 
-  const fallbackMs = (navStart + (reduced ? 1.2 : 2.4) + (footEl ? 0.14 : 0) + 0.45) * 1000;
+  const navDuration = reduced ? 0.95 : 2.05;
+
+  if (navEls.length) {
+    timeline.to(navEls, {
+      autoAlpha: 1,
+      y: 0,
+      filter: 'blur(0px)',
+      duration: navDuration,
+      ease: CONFIG.ease,
+      pointerEvents: 'auto',
+    }, navStart);
+  }
+
+  if (footEl) {
+    timeline.to(footEl, {
+      autoAlpha: 1,
+      y: 0,
+      filter: 'blur(0px)',
+      duration: reduced ? 0.95 : 1.55,
+      ease: CONFIG.ease,
+    }, navStart + 0.1);
+  }
+
+  const fallbackMs = (cfg.delay + navStart + navDuration + 0.35) * 1000;
 
   return { timeline, fallbackMs };
 }

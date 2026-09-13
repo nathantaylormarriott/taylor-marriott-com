@@ -3,7 +3,7 @@ import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import Lenis from 'lenis';
 import { CONFIG, HOME_BELOW_HERO } from '../config';
-import { revealHeroTitle, runHeroEntrance } from '../lib/heroReveal';
+import { getHeroHeadEls, revealHeroNav, revealHeroTitle, runHeroEntrance } from '../lib/heroReveal';
 import { useShell } from '../layout/Shell';
 import ContactLink from '../components/ContactLink';
 import {
@@ -77,7 +77,6 @@ export default function Home() {
     };
     const onLoad = () => { refreshScroll(); syncFooterHeight(); };
 
-    let entranceFrame = 0;
     let heroFallbackTimer = 0;
 
     const ctx = gsap.context(() => {
@@ -85,17 +84,23 @@ export default function Home() {
 
       const startHeroEntrance = () => {
         const root = mainRef.current;
-        const headEls = containerRef.current?.querySelectorAll('.logo, .head-action');
+        if (!root) return;
+        const headEls = getHeroHeadEls(containerRef.current);
         const { fallbackMs } = runHeroEntrance({
           scope: root,
           headEls,
           reduced,
           onComplete: () => window.clearTimeout(heroFallbackTimer),
         });
-        heroFallbackTimer = window.setTimeout(() => revealHeroTitle(root), fallbackMs || 4200);
+        heroFallbackTimer = window.setTimeout(() => {
+          const stuckWords = root.querySelector('.hero-title .split-word[style*="opacity: 0"]');
+          const stuckNav = containerRef.current?.querySelector('.logo[style*="opacity: 0"]');
+          if (stuckWords) revealHeroTitle(root);
+          if (stuckNav) revealHeroNav(containerRef.current);
+        }, fallbackMs || 5200);
       };
 
-      entranceFrame = requestAnimationFrame(startHeroEntrance);
+      startHeroEntrance();
 
       requestAnimationFrame(() => {
         syncFooterHeight();
@@ -214,21 +219,12 @@ export default function Home() {
 
     }, mainRef);
     return () => {
-      cancelAnimationFrame(entranceFrame);
       window.clearTimeout(heroFallbackTimer);
       window.removeEventListener('resize', syncFooterHeight);
       window.removeEventListener('load', onLoad);
       ctx.revert();
       revealHeroTitle(mainRef.current);
-      gsap.set(containerRef.current?.querySelectorAll('.logo, .head-action'), {
-        autoAlpha: 1,
-        opacity: 1,
-        visibility: 'visible',
-        y: 0,
-        filter: 'none',
-        pointerEvents: 'auto',
-        clearProps: 'transform,filter',
-      });
+      revealHeroNav(containerRef.current);
     };
   }, [reduced, isMobile, sceneApiRef, containerRef]);
 

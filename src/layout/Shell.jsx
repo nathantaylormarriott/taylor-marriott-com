@@ -4,13 +4,19 @@ import gsap from 'gsap';
 import { createScene } from '../lib/scene';
 import { CONFIG, HOME_BELOW_HERO, QURAN_ENABLED, SCENE_THEMES } from '../config';
 import { hasLiquidGlassRoots } from '../lib/liquidGlassManager';
+import { hasFieldBlur, setFieldBlurSceneApi } from '../lib/fieldBlurRegistry';
 import { hasNavBlur, setNavBlurSceneApi } from '../lib/navBlurRegistry';
 import { hasSceneRefractCanvases, setSceneRefractApi } from '../lib/sceneRefractRegistry';
 import taylorMarriottWordmark from '../assets/taylor-marriott-wordmark.png';
 import ContactLink from '../components/ContactLink';
-import ContactPanel from '../components/ContactPanel';
 import NavProgressiveBlur from '../components/NavProgressiveBlur';
 import QuranToggle from '../components/QuranToggle';
+import {
+  fadeContactPageOut,
+  fadePageChromeIn,
+  fadePageChromeOut,
+  primeIncomingRoutePage,
+} from '../lib/pageTransition';
 
 const ShellContext = createContext(null);
 
@@ -20,101 +26,20 @@ export function useShell() {
   return ctx;
 }
 
-function suspendScroll(lenisRef) {
-  lenisRef.current?.stop();
-}
-
-function hidePageContentForOverlay() {
-  gsap.set('.page-content', {
-    autoAlpha: 0,
-    visibility: 'hidden',
-    filter: 'none',
-    pointerEvents: 'none',
-  });
-}
-
-function revealHomeContent() {
-  gsap.killTweensOf(['.page-content', '.logo', '.head-action']);
-
-  gsap.set(['.logo', '.head-action', '.page-content'], {
-    autoAlpha: 1,
-    opacity: 1,
-    visibility: 'visible',
-    y: 0,
-    yPercent: 0,
-    filter: 'none',
-    pointerEvents: 'auto',
-    clearProps: 'transform,filter',
-  });
-}
-
-function resetOverlayPanelVisibility() {
-  gsap.killTweensOf('.contact-inner, .contact-inner *');
-  gsap.set(['.contact-inner > *', '.contact-intro-copy', '.contact-main', '.contact-form'], {
-    autoAlpha: 1,
-    opacity: 1,
-    visibility: 'visible',
-    y: 0,
-    filter: 'blur(0px)',
-    clearProps: 'transform',
-  });
-  gsap.set('.contact-success-view', {
-    autoAlpha: 0,
-    visibility: 'hidden',
-    filter: 'blur(12px)',
-  });
-}
-
-function showOverlayPanel() {
-  gsap.set('.contact-overlay', { autoAlpha: 1, visibility: 'visible', pointerEvents: 'auto' });
-  hidePageContentForOverlay();
-  resetOverlayPanelVisibility();
-  gsap.from('.contact-inner > *', {
-    autoAlpha: 0,
-    duration: 0.6,
-    stagger: 0.06,
-    ease: CONFIG.ease,
-  });
-}
-
-function hideOverlayPanel(onComplete) {
-  gsap.killTweensOf('.contact-inner, .contact-inner *');
-  gsap.to('.contact-inner > *', {
-    autoAlpha: 0,
-    duration: 0.35,
-    stagger: 0.04,
-    ease: 'power2.in',
-  });
-  gsap.to('.contact-overlay', {
-    autoAlpha: 0,
-    duration: 0.4,
-    delay: 0.08,
-    ease: 'power2.in',
-    onComplete: () => {
-      gsap.set('.contact-overlay', { visibility: 'hidden', pointerEvents: 'none' });
-      onComplete?.();
-    },
-  });
-}
-
 export default function Shell() {
   const containerRef = useRef(null);
   const canvasRef = useRef(null);
   const sceneApiRef = useRef(null);
   const lenisRef = useRef(null);
   const transitioningRef = useRef(false);
-  const overlayOpenRef = useRef(false);
   const pageVisibleRef = useRef(
     typeof document !== 'undefined' ? document.visibilityState !== 'hidden' : true,
   );
   const lastIdleRenderMsRef = useRef(0);
-  const preOverlaySceneScrollRef = useRef(0);
-  const [overlayMode, setOverlayMode] = useState(null);
-  const [overlaySession, setOverlaySession] = useState(0);
-  const overlayOpen = overlayMode !== null;
-  useEffect(() => {
-    overlayOpenRef.current = overlayOpen;
-  }, [overlayOpen]);
+  const routePathRef = useRef(null);
+  const routeTweenRef = useRef(null);
+  const contactEntranceFromRouteRef = useRef(false);
+  const [isRouteTransitioning, setIsRouteTransitioning] = useState(false);
 
   useEffect(() => {
     const onVisibility = () => {
@@ -169,6 +94,7 @@ export default function Shell() {
       });
       sceneApiRef.current.render(0);
       setNavBlurSceneApi(sceneApiRef);
+      setFieldBlurSceneApi(sceneApiRef);
       setSceneRefractApi(sceneApiRef);
     } catch (err) {
       console.warn('[Taylor-Marriott] WebGL unavailable', err);
@@ -194,10 +120,9 @@ export default function Shell() {
       };
       canvasRef.current.style.display = 'none';
       setNavBlurSceneApi(sceneApiRef);
+      setFieldBlurSceneApi(sceneApiRef);
       setSceneRefractApi(sceneApiRef);
     }
-
-    gsap.set('.contact-overlay', { autoAlpha: 0, visibility: 'hidden', pointerEvents: 'none' });
 
     const IDLE_RENDER_INTERVAL_MS = 33;
 
@@ -206,10 +131,10 @@ export default function Shell() {
 
       const needsFullRate =
         hasNavBlur() ||
+        hasFieldBlur() ||
         hasLiquidGlassRoots() ||
         hasSceneRefractCanvases() ||
-        transitioningRef.current ||
-        overlayOpenRef.current;
+        transitioningRef.current;
 
       if (!needsFullRate) {
         const now = performance.now();
@@ -229,13 +154,6 @@ export default function Shell() {
   }, [isMobile, reduced]);
 
   useEffect(() => {
-    const titles = {
-      contact: 'Contact — Taylor-Marriott',
-    };
-    if (overlayMode) {
-      document.title = titles[overlayMode];
-      return;
-    }
     if (isAdminRoute) {
       document.title = 'Admin — Taylor-Marriott';
       return;
@@ -247,123 +165,103 @@ export default function Shell() {
     document.title = isContactRoute
       ? 'Contact — Taylor-Marriott'
       : 'Taylor-Marriott — Design & Build';
-  }, [overlayMode, isContactRoute, isForMuslimsRoute, isAdminRoute]);
+  }, [isContactRoute, isForMuslimsRoute, isAdminRoute]);
 
   useEffect(() => {
-    if (overlayOpen) return;
     const theme = isForMuslimsRoute
       ? SCENE_THEMES.muslims.nebula
-      : (isContactRoute || isAdminRoute)
+      : isAdminRoute
         ? SCENE_THEMES.contact.nebula
         : SCENE_THEMES.home.nebula;
     sceneApiRef.current?.setNebula?.(theme);
-  }, [isContactRoute, isForMuslimsRoute, isAdminRoute, overlayOpen]);
+  }, [isForMuslimsRoute, isAdminRoute]);
 
   useEffect(() => {
     const lockHomeScroll = isMobile && !HOME_BELOW_HERO;
-    document.documentElement.classList.toggle('overlay-open', overlayOpen);
     document.documentElement.classList.toggle('contact-route', isContactRoute || isAdminRoute || isForMuslimsRoute);
-    document.documentElement.classList.toggle('site-scroll-lock', lockHomeScroll && !overlayOpen && !isContactRoute && !isAdminRoute && !isForMuslimsRoute);
+    document.documentElement.classList.toggle('site-scroll-lock', lockHomeScroll && !isContactRoute && !isAdminRoute && !isForMuslimsRoute);
     return () => {
-      document.documentElement.classList.remove('overlay-open', 'contact-route', 'site-scroll-lock');
+      document.documentElement.classList.remove('contact-route', 'site-scroll-lock');
     };
-  }, [isMobile, overlayOpen, isContactRoute, isForMuslimsRoute, isAdminRoute]);
+  }, [isMobile, isContactRoute, isForMuslimsRoute, isAdminRoute]);
 
   useLayoutEffect(() => {
-    if (!overlayMode) return;
-    showOverlayPanel();
-  }, [overlayMode, overlaySession]);
+    const nextPath = location.pathname;
+    const prevPath = routePathRef.current;
+
+    if (prevPath === null) {
+      routePathRef.current = nextPath;
+      return;
+    }
+
+    if (prevPath === nextPath) return;
+
+    const involvesContact = prevPath === '/contact' || nextPath === '/contact';
+    routePathRef.current = nextPath;
+
+    if (!involvesContact || reduced) return;
+
+    // Entering /contact — Contact page runs its own entrance on mount.
+    if (nextPath === '/contact') return;
+
+    transitioningRef.current = true;
+    routeTweenRef.current?.kill();
+    primeIncomingRoutePage();
+    routeTweenRef.current = fadePageChromeIn({
+      handoff: true,
+      onComplete: () => {
+        transitioningRef.current = false;
+        setIsRouteTransitioning(false);
+      },
+    });
+
+    return () => routeTweenRef.current?.kill();
+  }, [location.pathname, reduced]);
+
+  const beginPageRouteTransition = useCallback((path) => {
+    if (transitioningRef.current) return;
+    if (reduced) {
+      navigate(path);
+      return;
+    }
+
+    transitioningRef.current = true;
+    contactEntranceFromRouteRef.current = path === '/contact';
+    setIsRouteTransitioning(true);
+    routeTweenRef.current?.kill();
+
+    const leavingContact = location.pathname === '/contact';
+
+    if (leavingContact) {
+      fadeContactPageOut({
+        onComplete: () => {
+          navigate(path);
+        },
+      });
+      return;
+    }
+
+    fadePageChromeOut({
+      onComplete: () => {
+        navigate(path);
+      },
+    });
+  }, [location.pathname, navigate, reduced]);
+
+  useEffect(() => {
+    if (!location.state?.openContact || location.pathname === '/contact') return;
+    navigate('/contact', { replace: true, state: null });
+  }, [location.state, location.pathname, navigate]);
 
   const registerLenis = useCallback((instance) => {
     lenisRef.current = instance;
   }, []);
 
-  const openOverlay = useCallback((mode) => {
-    if (transitioningRef.current || overlayOpen) return;
-    transitioningRef.current = true;
-
-    const startScroll = sceneApiRef.current?.getScroll?.() ?? 0;
-    preOverlaySceneScrollRef.current = startScroll;
-    const scrollProxy = { scroll: startScroll };
-    const zoomProxy = { zoom: sceneApiRef.current?.getNebulaTransitionZoom?.() ?? 1 };
-
-    sceneApiRef.current?.freezeNebulaAnim?.();
-    suspendScroll(lenisRef);
-
-    const completeOpen = () => {
-      hidePageContentForOverlay();
-      setOverlaySession((session) => session + 1);
-      setOverlayMode(mode);
-      transitioningRef.current = false;
-    };
-
-    if (reduced) {
-      hidePageContentForOverlay();
-      setOverlaySession((session) => session + 1);
-      setOverlayMode(mode);
-      transitioningRef.current = false;
-      return;
-    }
-
-    gsap.timeline({ onComplete: completeOpen })
-      .to('.page-content', {
-        autoAlpha: 0,
-        filter: 'blur(12px)',
-        duration: CONFIG.transitionDuration * 0.55,
-        ease: 'power2.in',
-      }, 0)
-      .to(scrollProxy, {
-        scroll: startScroll + CONFIG.transitionScroll,
-        duration: CONFIG.transitionDuration,
-        ease: 'power3.inOut',
-        onUpdate: () => sceneApiRef.current?.setScroll(scrollProxy.scroll),
-      }, 0)
-      .to(zoomProxy, {
-        zoom: CONFIG.transitionNebulaZoom,
-        duration: CONFIG.transitionDuration,
-        ease: 'power3.inOut',
-        onUpdate: () => sceneApiRef.current?.setNebulaTransitionZoom?.(zoomProxy.zoom),
-      }, 0);
-  }, [overlayOpen, reduced]);
-
-  const openContact = useCallback(() => openOverlay('contact'), [openOverlay]);
-
-  const closeOverlay = useCallback(() => {
-    if (transitioningRef.current || !overlayOpen) return;
-    transitioningRef.current = true;
-
-    const finishClose = () => {
-      sceneApiRef.current?.setScrollImmediate?.(preOverlaySceneScrollRef.current);
-      sceneApiRef.current?.resetNebulaTransition?.();
-      setOverlayMode(null);
-      revealHomeContent();
-      lenisRef.current?.start();
-      transitioningRef.current = false;
-    };
-
-    hideOverlayPanel(() => {
-      if (reduced) {
-        finishClose();
-        return;
-      }
-
-      const zoomProxy = { zoom: sceneApiRef.current?.getNebulaTransitionZoom?.() ?? CONFIG.transitionNebulaZoom };
-      gsap.to(zoomProxy, {
-        zoom: 1,
-        duration: CONFIG.transitionDuration * 0.85,
-        ease: 'power3.out',
-        onUpdate: () => sceneApiRef.current?.setNebulaTransitionZoom?.(zoomProxy.zoom),
-        onComplete: finishClose,
-      });
-    });
-  }, [overlayOpen, reduced]);
-
-  useLayoutEffect(() => {
-    if (!location.state?.openContact || overlayOpen || transitioningRef.current) return;
-
-    navigate('.', { replace: true, state: null });
-    openOverlay('contact');
-  }, [location.state, overlayOpen, navigate, openOverlay]);
+  const finishRouteTransition = useCallback(() => {
+    transitioningRef.current = false;
+    contactEntranceFromRouteRef.current = false;
+    setIsRouteTransitioning(false);
+  }, []);
 
   const value = {
     containerRef,
@@ -371,12 +269,10 @@ export default function Shell() {
     isMobile,
     reduced,
     registerLenis,
-    overlayMode,
-    overlayOpen,
-    contactOpen: overlayMode === 'contact',
-    openContact,
-    closeOverlay,
-    closeContact: closeOverlay,
+    beginPageRouteTransition,
+    isRouteTransitioning,
+    contactEntranceFromRouteRef,
+    finishRouteTransition,
   };
 
   return (
@@ -386,25 +282,20 @@ export default function Shell() {
         <NavProgressiveBlur />
 
         <header className="site-head">
-          <Link
-            to="/"
-            className="logo"
-            aria-label="Taylor-Marriott"
-            onClick={(e) => {
-              if (!overlayOpen) return;
-              e.preventDefault();
-              closeOverlay();
-            }}
-          >
+          <Link to="/" className="logo" aria-label="Taylor-Marriott">
             <img src={taylorMarriottWordmark} alt="Taylor-Marriott" width={180} height={24} />
           </Link>
           <div className="site-head-actions">
-            {overlayOpen ? (
-              <button type="button" className="head-contact head-action" onClick={closeOverlay}>
-                Return
-              </button>
-            ) : isContactRoute || isAdminRoute ? (
-              <Link to="/" className="head-contact head-action">
+            {isContactRoute || isAdminRoute ? (
+              <Link
+                to="/"
+                className="head-contact head-action"
+                onClick={(e) => {
+                  if (reduced || !isContactRoute) return;
+                  e.preventDefault();
+                  beginPageRouteTransition('/');
+                }}
+              >
                 Home
               </Link>
             ) : isForMuslimsRoute ? (
@@ -420,10 +311,6 @@ export default function Shell() {
 
         <div className="page-content">
           <Outlet />
-        </div>
-
-        <div className="contact-overlay" aria-hidden={!overlayOpen}>
-          {overlayMode === 'contact' && <ContactPanel key={overlaySession} onClose={closeOverlay} />}
         </div>
       </div>
     </ShellContext.Provider>

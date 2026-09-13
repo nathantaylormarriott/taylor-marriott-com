@@ -1,6 +1,6 @@
 /* ============================================================
 VESPER — Deep-Field Observatory
-Palette: void #050507 · indigo #1B1438 · magenta #FF4D9D
+Palette: void #010102 · indigo #1B1438 · magenta #FF4D9D
 cyan #46E5FF · starlight #E8ECF5
 ============================================================ */
 @font-face {
@@ -32,16 +32,19 @@ cyan #46E5FF · starlight #E8ECF5
   font-display: swap;
 }
 :root {
-  --void:    #050507;
+  --void:    #010102;
   --indigo:  #1B1438;
   --magenta: #FF4D9D;
   --cyan:    #46E5FF;
   --star:    #E8ECF5;
   --star-dim: rgba(232, 236, 245, 0.55);
+  --hero-title-color: #e1dfd4;
+  --nav-link-color: #e5e3d8;
   --font-sans: 'Geist Sans', system-ui, sans-serif;
   --font-mono: 'Matter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --page-pad-x: 24px;
   --page-pad-y: 24px;
+  --contact-form-width: 27.5rem;
 }
 
 @font-face {
@@ -209,7 +212,7 @@ main {
   letter-spacing: 0.16em;
   text-transform: uppercase;
   text-decoration: none;
-  color: var(--star);
+  color: var(--nav-link-color);
   background: none;
   border: none;
   border-radius: 0;
@@ -230,22 +233,33 @@ main {
   padding: 0;
   border: none;
   background: none;
-  color: var(--star);
+  color: var(--nav-link-color);
   cursor: pointer;
   pointer-events: auto;
   touch-action: manipulation;
-  transition: color 0.2s ease;
+  transition: color 0.2s ease, filter 0.34s cubic-bezier(0.4, 0, 1, 1), opacity 0.34s cubic-bezier(0.4, 0, 1, 1);
 }
 .head-quran:hover {
   color: #fff;
 }
+.head-quran--layout-swapping {
+  filter: blur(9px);
+  opacity: 0.22;
+}
+.site-head-actions:has(.head-quran--layout-swapping) > .head-contact {
+  filter: blur(6px);
+  opacity: 0.45;
+  transition: filter 0.34s cubic-bezier(0.4, 0, 1, 1), opacity 0.34s cubic-bezier(0.4, 0, 1, 1);
+}
 .head-quran__label {
   display: inline-grid;
-  place-items: center start;
-  isolation: isolate;
+  grid-template-columns: 1fr;
+  justify-items: start;
+  align-items: center;
   flex-shrink: 0;
+  height: 1em;
+  isolation: isolate;
 }
-.head-quran__sizer,
 .head-quran__copy,
 .head-quran__short {
   grid-area: 1 / 1;
@@ -256,11 +270,6 @@ main {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   line-height: 1;
-}
-.head-quran__sizer {
-  visibility: hidden;
-  pointer-events: none;
-  user-select: none;
 }
 .head-quran__copy {
   opacity: 1;
@@ -340,16 +349,27 @@ main {
   font-weight: 300;
   font-size: clamp(2.25rem, 7vw, 6rem);
   letter-spacing: -0.03em;
-  line-height: 1.08;
-  background: linear-gradient(to top right, #F8F8F7, #DCD5C2);
+  line-height: 1.04;
+  --hero-title-gradient: linear-gradient(to top right, var(--hero-title-color), var(--hero-title-color));
+}
+.hero-title-line {
+  display: block;
+  overflow: visible;
+  padding-bottom: 0.07em;
+}
+.hero-title-line + .hero-title-line { margin-top: 0; }
+.split-char, .split-word { display: inline-block; }
+.hero-title .split-word {
+  background: var(--hero-title-gradient);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
   -webkit-text-fill-color: transparent;
+  padding-bottom: 0.12em;
+  margin-bottom: -0.12em;
+  vertical-align: baseline;
+  will-change: transform, opacity, filter;
 }
-.hero-title-line { display: block; }
-.hero-title-line + .hero-title-line { margin-top: 0.06em; }
-.split-char, .split-word { display: inline-block; }
 .split-line-mask { overflow: hidden; padding-bottom: 0.15em; margin-bottom: -0.15em; }
 .split-line { display: block; }
 /* ---------- Arrival (pinned) ---------- */
@@ -975,7 +995,7 @@ main {
   padding: var(--page-pad-x);
 }
 .portal-login {
-  width: min(100%, 35.44rem);
+  width: min(100%, var(--contact-form-width));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -998,11 +1018,18 @@ main {
   isolation: isolate;
 }
 .glass-surface__canvas,
+.glass-surface__blur,
 .glass-surface__tint {
   position: absolute;
   inset: 0;
   border-radius: inherit;
   pointer-events: none;
+}
+.glass-surface__blur {
+  z-index: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 .glass-surface__canvas {
   z-index: 0;
@@ -1014,9 +1041,17 @@ main {
   z-index: 1;
   border: 1px solid rgba(255, 255, 255, 0.18);
 }
-.glass-surface--field .glass-surface__tint,
-.glass-surface--input .glass-surface__tint {
+.glass-surface--fallback.glass-surface--field .glass-surface__tint,
+.glass-surface--fallback.glass-surface--input .glass-surface__tint {
   background: rgba(255, 255, 255, 0.06);
+}
+.glass-surface--scene-blur .glass-surface__tint {
+  z-index: 1;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+.glass-surface--scene-blur.glass-surface--input:focus-within .glass-surface__tint {
+  border-color: rgba(255, 255, 255, 0.28);
 }
 .glass-surface--pill .glass-surface__tint {
   background: rgba(255, 255, 255, 0.15);
@@ -1036,7 +1071,10 @@ main {
 .glass-surface--input {
   display: block;
   width: 100%;
-  border-radius: 8px;
+  border-radius: 999px;
+}
+.glass-surface--textarea {
+  border-radius: 1.75rem;
 }
 .glass-surface--input:focus-within .glass-surface__tint {
   border-color: rgba(255, 255, 255, 0.28);
@@ -1050,10 +1088,14 @@ main {
   border-radius: inherit;
   box-shadow: none !important;
 }
-.glass-surface--field > .glass-surface__content:focus,
-.glass-surface--input > .glass-surface__content:focus {
+.glass-surface--fallback.glass-surface--field > .glass-surface__content:focus,
+.glass-surface--fallback.glass-surface--input > .glass-surface__content:focus {
   outline: none;
   background: rgba(255, 255, 255, 0.06) !important;
+}
+.glass-surface--scene-blur > .glass-surface__content:focus {
+  outline: none;
+  background: transparent !important;
 }
 .glass-surface--field > .glass-surface__content:-webkit-autofill,
 .glass-surface--input > .glass-surface__content:-webkit-autofill {
@@ -1068,7 +1110,7 @@ main {
 }
 .portal-login-success {
   width: 100%;
-  max-width: 35.44rem;
+  max-width: var(--contact-form-width);
   text-align: center;
   pointer-events: auto;
 }
@@ -1087,9 +1129,26 @@ main {
 .contact-inner {
   width: 100%;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 35.44rem);
+  grid-template-columns: minmax(0, 1fr) minmax(0, var(--contact-form-width));
   gap: clamp(2rem, 5vw, 4.5rem);
   align-items: start;
+}
+.contact-inner:not(.contact-inner--success) {
+  --contact-portrait-width: clamp(15rem, 34vw, 23rem);
+  --contact-card-radius: 0.85rem;
+  --contact-field-radius: 0.65rem;
+  column-gap: clamp(2rem, 5vw, 4.5rem);
+  row-gap: 0;
+}
+.contact-inner:not(.contact-inner--success) .contact-intro {
+  grid-column: 1;
+  grid-row: 1;
+  align-self: start;
+}
+.contact-inner:not(.contact-inner--success) .contact-main {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: start;
 }
 .contact-intro {
   position: sticky;
@@ -1097,7 +1156,53 @@ main {
 }
 .contact-intro-copy,
 .contact-success-view {
-  max-width: 38ch;
+  max-width: min(100%, 54rem);
+}
+.contact-intro-copy {
+  display: flex;
+  align-items: flex-start;
+  gap: clamp(1.5rem, 3.5vw, 2.25rem);
+}
+.contact-intro-text {
+  flex: 1;
+  min-width: 0;
+  padding-top: 0.15rem;
+}
+.contact-portrait-wrap {
+  position: relative;
+  flex-shrink: 0;
+  border-radius: var(--contact-card-radius, 0.85rem);
+  overflow: hidden;
+}
+.contact-portrait-wrap::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      165deg,
+      rgba(220, 200, 175, 0.022) 0%,
+      rgba(200, 175, 145, 0.03) 100%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(0, 0, 0, 0.18) 0%,
+      rgba(0, 0, 0, 0.32) 52%,
+      rgba(0, 0, 0, 0.5) 100%
+    );
+  pointer-events: none;
+}
+.contact-portrait {
+  display: block;
+  width: var(--contact-portrait-width, clamp(15rem, 34vw, 23rem));
+  aspect-ratio: 4 / 5;
+  height: auto;
+  object-fit: cover;
+  object-position: center top;
+  filter: grayscale(1);
+}
+.contact-intro-text .contact-lead {
+  margin-top: 0;
 }
 .contact-success-view {
   visibility: hidden;
@@ -1131,8 +1236,8 @@ main {
   position: absolute;
   top: 0;
   right: 0;
-  width: min(100%, 35.44rem);
-  max-width: 35.44rem;
+  width: min(100%, var(--contact-form-width));
+  max-width: var(--contact-form-width);
   pointer-events: none;
 }
 .contact-kicker {
@@ -1146,7 +1251,7 @@ main {
   font-size: clamp(2.4rem, 6.5vw, 4.2rem);
   letter-spacing: -0.03em;
   line-height: 1.08;
-  background: linear-gradient(to top right, #F8F8F7, #DCD5C2);
+  background: linear-gradient(to top right, var(--hero-title-color), var(--hero-title-color));
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -1168,39 +1273,52 @@ main {
   position: relative;
   min-width: 0;
 }
-.contact-main > .contact-form {
-  padding: 0;
-}
-.contact-form-shell {
+.contact-form-card {
   position: relative;
   overflow: hidden;
-  border-radius: 14px;
+  isolation: isolate;
+  border-radius: var(--contact-card-radius, 0.85rem);
+  height: calc(var(--contact-portrait-width, clamp(15rem, 34vw, 23rem)) * 1.25);
+  display: flex;
+  flex-direction: column;
+  --contact-field-pad-x: 1.1rem;
 }
-.contact-form-glass-canvas {
+.contact-form-card__blur {
   position: absolute;
   inset: 0;
   z-index: 0;
   display: block;
+  width: 100%;
+  height: 100%;
   border-radius: inherit;
   pointer-events: none;
-  filter: blur(48px) saturate(1.45);
-  transform: scale(1.14);
-  transform-origin: center;
 }
-.contact-form-glass-tint {
+.contact-form-card__surface {
   position: absolute;
   inset: 0;
   z-index: 1;
   border-radius: inherit;
   border: 1px solid rgba(255, 255, 255, 0.14);
-  background:
-    linear-gradient(
-      145deg,
-      rgba(255, 255, 255, 0.1) 0%,
-      rgba(255, 255, 255, 0.05) 100%
-    );
-  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 24px 56px rgba(0, 0, 0, 0.18);
   pointer-events: none;
+}
+.contact-main > .contact-form-card > .contact-form {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: clamp(1.15rem, 2.2vw, 1.55rem);
+  border: none;
+  border-radius: inherit;
+  background: transparent;
+  box-shadow: none;
+  color: #fff;
+  overflow-y: auto;
 }
 .contact-form {
   position: relative;
@@ -1211,6 +1329,88 @@ main {
   background: transparent;
   box-shadow: none;
   color: #fff;
+  --contact-field-pad-x: 1.35rem;
+}
+.contact-form-card .glass-surface--input {
+  border-radius: var(--contact-field-radius, 0.65rem);
+}
+.contact-form-card .glass-surface--textarea {
+  border-radius: var(--contact-field-radius, 0.65rem);
+}
+.contact-form-card .contact-form .glass-surface--fallback.glass-surface--input .glass-surface__tint,
+.contact-form-card .contact-form .glass-surface--fallback.glass-surface--input:focus-within .glass-surface__tint,
+.contact-form-card .contact-form .glass-surface--scene-blur.glass-surface--input:focus-within .glass-surface__tint {
+  border: none;
+  outline: none;
+  box-shadow: none;
+  background: rgba(255, 255, 255, 0.06);
+}
+.contact-form-card .contact-form .glass-surface--fallback.glass-surface--input > .glass-surface__content {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border: none;
+  outline: none;
+  box-shadow: none;
+}
+.contact-form-card .contact-field + .contact-field {
+  margin-top: 0.65rem;
+}
+.contact-form-card .contact-field:has(.contact-textarea) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.contact-form-card .contact-field:has(.contact-textarea) .glass-surface--input {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.contact-form-card .contact-field:has(.contact-textarea) .glass-surface__content {
+  flex: 1;
+  min-height: 0;
+  max-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+.contact-form-card .contact-input {
+  padding: 0.7rem var(--contact-field-pad-x, 1.1rem);
+}
+.contact-form-card .contact-textarea {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 0;
+  height: 100%;
+  max-height: 100%;
+  padding-block: 0.7rem;
+  resize: none;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.contact-form .glass-surface--input {
+  border-radius: var(--contact-card-radius);
+}
+.contact-form .glass-surface--scene-blur,
+.contact-form .glass-surface--fallback {
+  box-shadow: none;
+}
+.contact-form .glass-surface--scene-blur .glass-surface__tint,
+.contact-form .glass-surface--fallback .glass-surface__tint {
+  border: none;
+  outline: none;
+  background: transparent;
+  box-shadow: none;
+}
+.contact-form .glass-surface--scene-blur.glass-surface--input:focus-within .glass-surface__tint,
+.contact-form .glass-surface--fallback.glass-surface--input:focus-within .glass-surface__tint {
+  border: none;
+  background: transparent;
+  box-shadow: none;
 }
 .contact-field + .contact-field {
   margin-top: 1.35rem;
@@ -1245,20 +1445,60 @@ main {
   background: transparent;
   border: none;
   border-radius: inherit;
-  padding: 0.85rem 1rem;
+  padding: 0.9rem 1.35rem;
   box-shadow: none;
   transition: background 0.2s ease;
 }
 .contact-input::placeholder {
   color: rgba(255, 255, 255, 0.5);
 }
-.contact-input:focus {
+.glass-surface--scene-blur .contact-input:focus {
   outline: none;
-  background: rgba(255, 255, 255, 0.04);
+  background: transparent;
+}
+.glass-surface--fallback .contact-input:focus {
+  outline: none;
+  background: transparent;
+}
+.contact-form .glass-surface--fallback .contact-input:focus {
+  background: transparent;
 }
 .contact-textarea {
   resize: vertical;
   min-height: 8.5rem;
+  padding-block: 1rem;
+}
+.contact-form-card .contact-submit--text {
+  margin-top: auto;
+  padding-top: 0.85rem;
+  padding-inline: 0;
+}
+.contact-form .contact-submit--text {
+  display: block;
+  width: 100%;
+  margin-top: 1.75rem;
+  padding: 0 var(--contact-field-pad-x, 1.35rem);
+  border: none;
+  border-radius: 0;
+  background: none;
+  color: var(--hero-title-color);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  text-align: left;
+  cursor: pointer;
+  transition: color 0.2s ease, opacity 0.2s ease;
+}
+.contact-form .contact-submit--text:hover:not(:disabled) {
+  background: none;
+  color: var(--hero-title-color);
+  opacity: 0.82;
+}
+.contact-form .contact-submit--text:disabled {
+  opacity: 0.65;
+  cursor: wait;
 }
 .contact-submit {
   display: inline-block;
@@ -1326,6 +1566,18 @@ main {
   .contact-inner {
     grid-template-columns: 1fr;
     gap: 2rem;
+  }
+  .contact-inner:not(.contact-inner--success) .contact-intro,
+  .contact-inner:not(.contact-inner--success) .contact-main {
+    grid-column: auto;
+    grid-row: auto;
+  }
+  .contact-inner:not(.contact-inner--success) {
+    --contact-portrait-width: min(100%, clamp(15rem, 34vw, 23rem));
+  }
+  .contact-form-card {
+    width: 100%;
+    max-width: var(--contact-portrait-width, 23rem);
   }
   .contact-intro {
     position: relative;
@@ -1466,7 +1718,10 @@ button.contact-hub__action {
 .contact-hub__form .contact-field + .contact-field {
   margin-top: 1.1rem;
 }
-.contact-hub__submit,
+.contact-hub__submit {
+  margin-top: 1.35rem;
+  text-align: left;
+}
 .contact-hub__success-reset {
   display: block;
   width: 100%;
@@ -1497,8 +1752,11 @@ html.contact-route body {
   overscroll-behavior: none;
   height: 100%;
 }
-html.contact-route .contact-hub {
+html.contact-route .contact-page {
   height: 100dvh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 html.contact-route .ops-page {
   height: 100dvh;
@@ -1906,9 +2164,15 @@ html.contact-route .ops-page {
 @media (prefers-reduced-motion: reduce) {
   .for-muslims-charity-copy,
   .for-muslims-charity-donate,
+  .head-quran,
   .head-quran__copy,
-  .head-quran__short {
+  .head-quran__short,
+  .site-head-actions:has(.head-quran--layout-swapping) > .head-contact {
     transition: none;
+  }
+  .head-quran--layout-swapping {
+    filter: none;
+    opacity: 1;
   }
   .for-muslims-charity-btn:hover .for-muslims-charity-copy {
     opacity: 0;

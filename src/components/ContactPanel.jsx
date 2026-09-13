@@ -1,9 +1,11 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
 import { CONFIG } from '../config';
+import ContactFormCard from './ContactFormCard';
 import GlassButton from './GlassButton';
 import GlassField from './GlassField';
 import { submitContactForm } from '../lib/contactForm';
+import nathanHeadshot from '../assets/nathan-headshot.webp';
 
 const FORM_ID = 'contact-overlay-form';
 const SUCCESS_AUTO_CLOSE_MS = 5000;
@@ -110,10 +112,22 @@ export default function ContactPanel({ onClose }) {
     <div className={`contact-inner${status === 'success' ? ' contact-inner--success' : ''}`}>
       <div className="contact-intro">
         <div className="contact-intro-copy">
-          <h1 className="contact-title">Tell us about<br />your project.</h1>
-          <p className="contact-lead">
-            Share a few details and we'll get back to you within one working day to talk through scope, timeline, and how we can help.
-          </p>
+          <div className="contact-portrait-wrap">
+            <img
+              className="contact-portrait"
+              src={nathanHeadshot}
+              alt="Nathan Taylor-Marriott"
+              width={368}
+              height={460}
+              decoding="async"
+            />
+          </div>
+          <div className="contact-intro-text">
+            <h1 className="contact-title">Tell us about<br />your objective.</h1>
+            <p className="contact-lead">
+              We will get back to you as soon as possible.
+            </p>
+          </div>
         </div>
 
         {status === 'success' && (
@@ -139,7 +153,8 @@ export default function ContactPanel({ onClose }) {
         </div>
       ) : (
         <div className="contact-main" ref={mainRef}>
-          <form
+          <ContactFormCard>
+            <form
             id={FORM_ID}
             className="contact-form"
             name="contact"
@@ -177,32 +192,39 @@ export default function ContactPanel({ onClose }) {
             />
 
             <GlassField
+              id="contact-phone"
+              label="Phone"
+              name="phone"
+              type="tel"
+              autoComplete="tel"
+              liquid={false}
+            />
+
+            <GlassField
               id="contact-company"
               label="Company"
               name="company"
               autoComplete="organization"
               liquid={false}
-              optional
             />
 
             <GlassField
               id="contact-message"
-              label="Project details"
+              label="Message"
               name="message"
               multiline
-              rows={5}
+              rows={1}
               liquid={false}
               wobble={wobbleFields.includes('message')}
             />
 
-            <GlassButton
-              className="contact-submit"
+            <button
+              className="contact-submit contact-submit--text"
               type="submit"
-              liquid={false}
               disabled={status === 'sending'}
             >
-              {status === 'sending' ? 'Sending…' : 'Send message'}
-            </GlassButton>
+              {status === 'sending' ? 'Sending…' : 'Start a conversation'}
+            </button>
 
             {status === 'error' && (
               <p className="contact-error mono">
@@ -210,6 +232,7 @@ export default function ContactPanel({ onClose }) {
               </p>
             )}
           </form>
+          </ContactFormCard>
         </div>
       )}
     </div>

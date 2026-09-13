@@ -8,25 +8,22 @@ export default function GlassField({
   type = 'text',
   autoComplete,
   wobble = false,
-  optional = false,
   multiline = false,
   rows,
   placeholder,
   form,
   liquid = true,
+  sceneBlur = false,
 }) {
   const InputTag = multiline ? 'textarea' : 'input';
-  const fieldPlaceholder = placeholder ?? (optional ? `${label} (optional)` : label);
+  const fieldPlaceholder = placeholder ?? label;
 
   return (
     <div className={`contact-field${wobble ? ' contact-field--wobble' : ''}`}>
-      <label className="contact-label contact-label--sr-only" htmlFor={id}>
-        {label}
-        {optional && ' (optional)'}
-      </label>
       <GlassSurface
         variant="field"
         liquid={liquid}
+        sceneBlur={sceneBlur}
         className={`glass-surface--input contact-form-item${multiline ? ' glass-surface--textarea' : ''}`}
       >
         <InputTag

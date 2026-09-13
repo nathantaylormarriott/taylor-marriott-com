@@ -63,21 +63,22 @@ function getScratch(width, height, dpr) {
   return scratchCtx;
 }
 
-function drawLayer(canvas, sourceCanvas, shellRect, blurPx) {
-  if (!canvas || !sourceCanvas || shellRect.width <= 0 || shellRect.height <= 0) return;
+/** Blur a live WebGL snapshot into a canvas sized to targetRect (nav bands, form fields, etc.). */
+export function drawSceneBlurLayer(canvas, sourceCanvas, targetRect, blurPx) {
+  if (!canvas || !sourceCanvas || targetRect.width <= 0 || targetRect.height <= 0) return;
 
   const sourceRect = sourceCanvas.getBoundingClientRect();
   if (sourceRect.width <= 0 || sourceRect.height <= 0) return;
 
   const dpr = getNavBlurDpr();
-  const pixelW = Math.max(1, Math.round(shellRect.width * dpr));
-  const pixelH = Math.max(1, Math.round(shellRect.height * dpr));
+  const pixelW = Math.max(1, Math.round(targetRect.width * dpr));
+  const pixelH = Math.max(1, Math.round(targetRect.height * dpr));
 
   if (canvas.width !== pixelW || canvas.height !== pixelH) {
     canvas.width = pixelW;
     canvas.height = pixelH;
-    canvas.style.width = `${shellRect.width}px`;
-    canvas.style.height = `${shellRect.height}px`;
+    canvas.style.width = `${targetRect.width}px`;
+    canvas.style.height = `${targetRect.height}px`;
   }
 
   const ctx = canvas.getContext('2d', { alpha: true });
@@ -88,20 +89,20 @@ function drawLayer(canvas, sourceCanvas, shellRect, blurPx) {
 
   // Extra vertical sampling room — backdrop-filter sees surrounding pixels; a tight crop looks harsh.
   const bleed = Math.min(72, Math.max(20, blurPx * 2.5));
-  const captureHeight = shellRect.height + bleed * 2;
+  const captureHeight = targetRect.height + bleed * 2;
 
   const scaleX = sourceCanvas.width / sourceRect.width;
   const scaleY = sourceCanvas.height / sourceRect.height;
-  const sx = (shellRect.left - sourceRect.left) * scaleX;
-  const sy = (shellRect.top - sourceRect.top - bleed) * scaleY;
-  const sw = shellRect.width * scaleX;
+  const sx = (targetRect.left - sourceRect.left) * scaleX;
+  const sy = (targetRect.top - sourceRect.top - bleed) * scaleY;
+  const sw = targetRect.width * scaleX;
   const sh = captureHeight * scaleY;
 
-  const scratch = getScratch(shellRect.width, captureHeight, dpr);
+  const scratch = getScratch(targetRect.width, captureHeight, dpr);
   if (!scratch) return;
 
   scratch.setTransform(dpr, 0, 0, dpr, 0, 0);
-  scratch.clearRect(0, 0, shellRect.width, captureHeight);
+  scratch.clearRect(0, 0, targetRect.width, captureHeight);
 
   try {
     scratch.filter = useCanvasFilter ? `blur(${blurPx}px) saturate(1.2)` : 'none';
@@ -113,13 +114,13 @@ function drawLayer(canvas, sourceCanvas, shellRect, blurPx) {
       sh,
       0,
       0,
-      shellRect.width,
+      targetRect.width,
       captureHeight,
     );
     scratch.filter = 'none';
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, shellRect.width, shellRect.height);
+    ctx.clearRect(0, 0, targetRect.width, targetRect.height);
     ctx.drawImage(
       scratchCanvas,
       0,
@@ -128,8 +129,8 @@ function drawLayer(canvas, sourceCanvas, shellRect, blurPx) {
       pixelH,
       0,
       0,
-      shellRect.width,
-      shellRect.height,
+      targetRect.width,
+      targetRect.height,
     );
   } catch {
     // Canvas stays clear — nav remains readable.
@@ -147,6 +148,6 @@ export function drawNavProgressiveBlur(shellEl, layerCanvases, sourceCanvas) {
 
   layerCanvases.forEach((canvas, index) => {
     const blurPx = NAV_PROGRESSIVE_BLUR_LAYERS[index]?.blur ?? 10;
-    drawLayer(canvas, sourceCanvas, shellRect, blurPx);
+    drawSceneBlurLayer(canvas, sourceCanvas, shellRect, blurPx);
   });
 }
