@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host --port 5274",
     "build": "vite build && node scripts/postbuild-seo.mjs",
     "preview": "vite preview"
   },

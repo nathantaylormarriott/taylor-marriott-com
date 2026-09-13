@@ -1,5 +1,6 @@
 import React, { useLayoutEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import ContactHelloCarousel from '../components/ContactHelloCarousel';
 import ContactPanel from '../components/ContactPanel';
 import { useShell } from '../layout/Shell';
 import {
@@ -53,6 +54,7 @@ export default function Contact() {
   return (
     <main className="contact-page">
       <ContactPanel onClose={handleClose} />
+      <ContactHelloCarousel reduced={reduced} />
     </main>
   );
 }
