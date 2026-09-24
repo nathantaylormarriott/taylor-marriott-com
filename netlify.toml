@@ -21,18 +21,9 @@
   status = 301
   force = true
 
-# Trailing slash normalisation
-[[redirects]]
-  from = "/contact/"
-  to = "/contact"
-  status = 301
-
-[[redirects]]
-  from = "/discovery-session/"
-  to = "/discovery-session"
-  status = 301
-
 # SPA fallback
+# Do not add trailing-slash 301s for app routes. Netlify applies those
+# rules to both /path and /path/, which redirects the page to itself.
 [[redirects]]
   from = "/*"
   to = "/index.html"
