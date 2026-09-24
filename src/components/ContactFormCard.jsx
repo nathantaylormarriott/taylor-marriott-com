@@ -2,7 +2,7 @@ import React, { useRef } from 'react';
 import { useShell } from '../layout/Shell';
 import { useFieldSceneBlur } from '../lib/useFieldSceneBlur';
 
-export default function ContactFormCard({ children }) {
+export default function ContactFormCard({ children, className = '' }) {
   const shellRef = useRef(null);
   const blurRef = useRef(null);
   const { reduced } = useShell();
@@ -10,7 +10,7 @@ export default function ContactFormCard({ children }) {
   useFieldSceneBlur(shellRef, blurRef, !reduced);
 
   return (
-    <div ref={shellRef} className="contact-form-card">
+    <div ref={shellRef} className={`contact-form-card ${className}`.trim()}>
       <canvas
         ref={blurRef}
         className="contact-form-card__blur"

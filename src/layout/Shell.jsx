@@ -62,8 +62,9 @@ export default function Shell() {
   const location = useLocation();
   const navigate = useNavigate();
   const isContactRoute = location.pathname === '/contact';
+  const isDiscoveryRoute = location.pathname === '/discovery-session';
   const isForMuslimsRoute = location.pathname === '/for-muslims';
-  const isAdminRoute = location.pathname === '/admin' || location.pathname === '/ops';
+  const isHubRoute = isContactRoute || isDiscoveryRoute || isForMuslimsRoute;
 
   useEffect(() => {
     if (reduced || isMobile) return;
@@ -154,36 +155,36 @@ export default function Shell() {
   }, [isMobile, reduced]);
 
   useEffect(() => {
-    if (isAdminRoute) {
-      document.title = 'Admin — Taylor-Marriott';
-      return;
-    }
     if (isForMuslimsRoute) {
       document.title = 'For Muslims — Taylor-Marriott';
+      return;
+    }
+    if (isDiscoveryRoute) {
+      document.title = 'Discovery session — Taylor-Marriott';
       return;
     }
     document.title = isContactRoute
       ? 'Contact — Taylor-Marriott'
       : 'Taylor-Marriott — Design & Build';
-  }, [isContactRoute, isForMuslimsRoute, isAdminRoute]);
+  }, [isContactRoute, isDiscoveryRoute, isForMuslimsRoute]);
 
   useEffect(() => {
     const theme = isForMuslimsRoute
       ? SCENE_THEMES.muslims.nebula
-      : isAdminRoute
+      : isContactRoute || isDiscoveryRoute
         ? SCENE_THEMES.contact.nebula
         : SCENE_THEMES.home.nebula;
     sceneApiRef.current?.setNebula?.(theme);
-  }, [isForMuslimsRoute, isAdminRoute]);
+  }, [isContactRoute, isDiscoveryRoute, isForMuslimsRoute]);
 
   useEffect(() => {
     const lockHomeScroll = isMobile && !HOME_BELOW_HERO;
-    document.documentElement.classList.toggle('contact-route', isContactRoute || isAdminRoute || isForMuslimsRoute);
-    document.documentElement.classList.toggle('site-scroll-lock', lockHomeScroll && !isContactRoute && !isAdminRoute && !isForMuslimsRoute);
+    document.documentElement.classList.toggle('contact-route', isHubRoute);
+    document.documentElement.classList.toggle('site-scroll-lock', lockHomeScroll && !isHubRoute);
     return () => {
       document.documentElement.classList.remove('contact-route', 'site-scroll-lock');
     };
-  }, [isMobile, isContactRoute, isForMuslimsRoute, isAdminRoute]);
+  }, [isMobile, isHubRoute]);
 
   useLayoutEffect(() => {
     const nextPath = location.pathname;
@@ -286,12 +287,12 @@ export default function Shell() {
             <img src={taylorMarriottWordmark} alt="Taylor-Marriott" width={180} height={24} />
           </Link>
           <div className="site-head-actions">
-            {isContactRoute || isAdminRoute ? (
+            {isContactRoute || isDiscoveryRoute ? (
               <Link
                 to="/"
                 className="head-contact head-action"
                 onClick={(e) => {
-                  if (reduced || !isContactRoute) return;
+                  if (reduced || (!isContactRoute && !isDiscoveryRoute)) return;
                   e.preventDefault();
                   beginPageRouteTransition('/');
                 }}

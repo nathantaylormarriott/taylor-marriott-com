@@ -33,6 +33,11 @@ export const CONTACT = {
   whatsapp: '447831798112',
 };
 
+/** Discovery sessions — availability + booking via /api/discovery (Google Calendar API). */
+export const DISCOVERY_BOOKING = {
+  durationMinutes: Number(import.meta.env.VITE_DISCOVERY_SLOT_MINUTES) || 30,
+};
+
 export const SCENE_THEMES = {
   home: {
     nebula: { colorA: '#FF4D9D', colorB: '#46E5FF', intensity: 0.24 },

@@ -234,9 +234,9 @@ export default function Home() {
         <section className="hero" id="hero">
           <div className="hero-inner">
             <h1 className="hero-title">
-              <span className="hero-title-line"><SplitWords text="We design, build, and" /></span>
-              <span className="hero-title-line"><SplitWords text="grow the digital products" /></span>
-              <span className="hero-title-line"><SplitWords text="your brand deserves." /></span>
+              <span className="hero-title-line"><SplitWords text="We design, build and grow" /></span>
+              <span className="hero-title-line"><SplitWords text="the digital infrastructure" /></span>
+              <span className="hero-title-line"><SplitWords text="your business deserves" /></span>
             </h1>
           </div>
         </section>

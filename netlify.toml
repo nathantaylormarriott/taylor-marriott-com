@@ -2,12 +2,6 @@
   command = "npm run build"
   publish = "dist"
 
-[functions]
-  directory = "netlify/functions"
-
-[functions."ops-sync"]
-  timeout = 60
-
 # Canonical host — apex preferred
 [[redirects]]
   from = "https://www.taylor-marriott.com/*"
@@ -31,6 +25,11 @@
 [[redirects]]
   from = "/contact/"
   to = "/contact"
+  status = 301
+
+[[redirects]]
+  from = "/discovery-session/"
+  to = "/discovery-session"
   status = 301
 
 # SPA fallback

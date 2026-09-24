@@ -2,6 +2,7 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
 import { CONFIG } from '../config';
 import ContactFormCard from './ContactFormCard';
+import DiscoveryBooking from './DiscoveryBooking';
 import GlassButton from './GlassButton';
 import GlassField from './GlassField';
 import { submitContactForm } from '../lib/contactForm';
@@ -127,6 +128,7 @@ export default function ContactPanel({ onClose }) {
             <p className="contact-lead">
               We will get back to you as soon as possible.
             </p>
+            <DiscoveryBooking variant="teaser" />
           </div>
         </div>
 
