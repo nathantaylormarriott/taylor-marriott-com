@@ -1674,7 +1674,7 @@ html.contact-route .discovery-session-page {
 }
 @media (min-width: 769px) {
   .discovery-session-booking {
-    padding-top: 0;
+    padding-top: 0.85rem;
   }
   .discovery-session-alt {
     margin-top: 1.75rem;

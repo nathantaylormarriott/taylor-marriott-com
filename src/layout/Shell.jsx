@@ -39,6 +39,7 @@ export default function Shell() {
   const routePathRef = useRef(null);
   const routeTweenRef = useRef(null);
   const contactEntranceFromRouteRef = useRef(false);
+  const hubRouteHandoffRef = useRef(false);
   const [isRouteTransitioning, setIsRouteTransitioning] = useState(false);
 
   useEffect(() => {
@@ -205,6 +206,9 @@ export default function Shell() {
     // Entering /contact — Contact page runs its own entrance on mount.
     if (nextPath === '/contact') return;
 
+    // Entering /discovery-session — DiscoverySession owns page chrome reveal.
+    if (nextPath === '/discovery-session') return;
+
     transitioningRef.current = true;
     routeTweenRef.current?.kill();
     primeIncomingRoutePage();
@@ -227,6 +231,7 @@ export default function Shell() {
     }
 
     transitioningRef.current = true;
+    hubRouteHandoffRef.current = true;
     contactEntranceFromRouteRef.current = path === '/contact';
     setIsRouteTransitioning(true);
     routeTweenRef.current?.kill();
@@ -273,6 +278,7 @@ export default function Shell() {
     beginPageRouteTransition,
     isRouteTransitioning,
     contactEntranceFromRouteRef,
+    hubRouteHandoffRef,
     finishRouteTransition,
   };
 

@@ -1,26 +1,38 @@
-import React, { useLayoutEffect } from 'react';
+import React, { useLayoutEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import DiscoveryBooking from '../components/DiscoveryBooking';
 import { useShell } from '../layout/Shell';
-import { fadePageChromeIn, primeIncomingRoutePage } from '../lib/pageTransition';
+import {
+  fadePageChromeIn,
+  primeIncomingRoutePage,
+  revealPageChromeInstant,
+} from '../lib/pageTransition';
 
 export default function DiscoverySession() {
-  const { reduced, finishRouteTransition } = useShell();
+  const { reduced, finishRouteTransition, hubRouteHandoffRef } = useShell();
+  const entranceRan = useRef(false);
 
   useLayoutEffect(() => {
+    if (entranceRan.current) return;
+    entranceRan.current = true;
+
     window.scrollTo(0, 0);
 
-    if (reduced) {
+    const handoff = hubRouteHandoffRef.current;
+    hubRouteHandoffRef.current = false;
+
+    if (reduced || !handoff) {
+      revealPageChromeInstant();
       finishRouteTransition();
       return;
     }
 
     primeIncomingRoutePage();
     fadePageChromeIn({
-      handoff: false,
+      handoff: true,
       onComplete: finishRouteTransition,
     });
-  }, [finishRouteTransition, reduced]);
+  }, [finishRouteTransition, hubRouteHandoffRef, reduced]);
 
   return (
     <main className="discovery-session-page">

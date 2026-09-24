@@ -4,6 +4,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import Lenis from 'lenis';
 import { CONFIG, HOME_BELOW_HERO } from '../config';
 import { getHeroHeadEls, revealHeroNav, revealHeroTitle, runHeroEntrance } from '../lib/heroReveal';
+import { revealPageChromeInstant } from '../lib/pageTransition';
 import { useShell } from '../layout/Shell';
 import ContactLink from '../components/ContactLink';
 import {
@@ -24,6 +25,7 @@ export default function Home() {
   useLayoutEffect(() => {
     window.scrollTo(0, 0);
     sceneApiRef.current?.setScrollImmediate?.(0);
+    revealPageChromeInstant();
   }, [sceneApiRef]);
 
   useLayoutEffect(() => {
