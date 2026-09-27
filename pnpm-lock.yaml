@@ -8,12 +8,9 @@ importers:
 
   .:
     dependencies:
-      '@netlify/blobs':
-        specifier: ^10.7.13
-        version: 10.7.13
       '@netlify/functions':
-        specifier: ^5.3.0
-        version: 5.3.0
+        specifier: ^6.0.0
+        version: 6.0.0
       '@netlify/vite-plugin':
         specifier: ^2.12.9
         version: 2.12.9(rollup@4.63.2)(vite@5.4.21(@types/node@22.20.2))
@@ -23,12 +20,18 @@ importers:
       clsx:
         specifier: ^2.1.0
         version: 2.1.1
+      googleapis:
+        specifier: ^181.0.0
+        version: 181.0.0
       gsap:
         specifier: ^3.12.5
         version: 3.15.0
       lenis:
         specifier: ^1.0.42
         version: 1.3.26(react@18.3.1)
+      luxon:
+        specifier: ^3.7.2
+        version: 3.7.2
       react:
         specifier: ^18.2.0
         version: 18.3.1
@@ -697,6 +700,10 @@ packages:
     resolution: {integrity: sha512-FP+xCoZMkMOUsKa4UdG/oiK/2md1/TxuXvqqieaMVMgDbFFMaHI8h0oHCViUY73kPbKV6HyzayaSXGYXKpBSoQ==}
     engines: {node: '>=18.0.0'}
 
+  '@netlify/functions@6.0.0':
+    resolution: {integrity: sha512-Pee+FoFnAtdejTkl62a7mZxj6Wx4eqVNuYyDc5T4XPJN9GaAWaUf4cZQFlf2m4Fqq0HoghjtcPKo+BZviVPPKA==}
+    engines: {node: '>=22.12.0'}
+
   '@netlify/headers-parser@10.1.1':
     resolution: {integrity: sha512-ooiSc/eN/ktuugZmY4GVPh6nBYz2um0zpemokDvTLLQPF12QyXil8N6fr82wdLi03WNowwiL98eultZkTyHlyw==}
     engines: {node: '>=22.12.0'}
@@ -744,6 +751,10 @@ packages:
   '@netlify/types@2.8.0':
     resolution: {integrity: sha512-8/g0Pt6y6wXj5Ia5eeYLiXhRfWeqZXGXpGFeCiiQdUOem+FPtXdA4+YdGxqzWc7D0AvptKSO01KGeeVWHSu8Kg==}
     engines: {node: ^18.14.0 || >=20}
+
+  '@netlify/types@3.0.0':
+    resolution: {integrity: sha512-zRCidsQgI4CZWrZB/kmwdPf0QbSNljakfNSLizFvrsSA3UcUrTWSBNMVKmZnob92/8ESeUN0ewXLOlffJU+ATQ==}
+    engines: {node: '>=22.12.0'}
 
   '@netlify/vite-plugin@2.12.9':
     resolution: {integrity: sha512-6c4OpF5EINlGU2ogxWhBdGQJcKUoupdns5AJnghcHw3q/32LqFDxvX4Gq6vR+Dgx6y4MCiVMyT9wgh2dpeCHDw==}
@@ -1234,6 +1245,9 @@ packages:
     peerDependencies:
       ajv: 4.11.8 - 8
 
+  bignumber.js@9.3.1:
+    resolution: {integrity: sha512-Ko0uX15oIUS7wJ3Rb30Fs6SkVbLmPBAKdlm7q9+ak9bbIeFf0MwuBsQV6z7+X768/cHsfg+WlysDWJcmthjsjQ==}
+
   bindings@1.5.0:
     resolution: {integrity: sha512-p2q/t/mhvuOj/UeLlV6566GD/guowlr0hHxClI0W9m7MWYkL1F0hLo+0Aexs9HSPCtR1SXQ0TD3MMKrXZajbiQ==}
 
@@ -1705,6 +1719,9 @@ packages:
     resolution: {integrity: sha512-VyhnebXciFV2DESc+p6B+y0LjSm0krU4OgJN44qFAhBY0TJ+1V61tYD2+wHusZ6F9n5K+vl8k0sTy7PEfV4qpg==}
     engines: {node: '>=16.17'}
 
+  extend@3.0.2:
+    resolution: {integrity: sha512-fjquC59cD7CyW6urNXK0FBufkZcoiGG80wTuPujX590cB5Ttln20E2UB4S/WARVqhXffZl2LNgS+gQdPIIim/g==}
+
   extract-zip@2.0.1:
     resolution: {integrity: sha512-GDhU9ntwuKyGXdZBUgTIe+vXnWj0fppUEtMDL0+idd5Sta8TGpHssn/eusA9mrPr9qNDym6SxAYZjNvCn/9RBg==}
     engines: {node: '>= 10.17.0'}
@@ -1797,6 +1814,14 @@ packages:
   functions-have-names@1.2.3:
     resolution: {integrity: sha512-xckBUXyTIqT97tq2x2AMb+g163b5JFysYk0x4qxNFwbfQkmNZoiRHb6sPzI9/QV33WeuvVYBUIiD4NzNIyqaRQ==}
 
+  gaxios@7.3.1:
+    resolution: {integrity: sha512-kB3rzJV7d9juLZh8/56QTXCwQfxyhdOMdyYk1HdQKFtF8TJTDTZQJtixWIwXdE9Jji91mC41DUNpjleo4L4eAQ==}
+    engines: {node: '>=18'}
+
+  gcp-metadata@9.0.4:
+    resolution: {integrity: sha512-p6WvbXOhfwnVtv/MyPq5kBiVhfV/qglMIxwwTVNEI1Ha1HmOgz5uHYHtYO6SfGckFaXe8blA11IJJ3wqXmvmBA==}
+    engines: {node: '>=22'}
+
   generator-function@2.0.1:
     resolution: {integrity: sha512-SFdFmIJi+ybC0vjlHN0ZGVGHc3lgE0DxPAT0djjVg+kjOnSqclqmj0KQ7ykTOLP6YxoqOvuAODGdcHJn+43q3g==}
     engines: {node: '>= 0.4'}
@@ -1856,6 +1881,22 @@ packages:
     resolution: {integrity: sha512-otgSPpUmdWJ43VXyiNgEYE4luzHCL2pz4wQ0OnDluC6Eg4Ko3Vexy/SrSynglw/eR+OhkzmqFCZa/OFa/RgAOQ==}
     engines: {node: '>=0.6.0'}
     hasBin: true
+
+  google-auth-library@11.1.0:
+    resolution: {integrity: sha512-YIBq5KNoHQrZ9PM4PeodDBqqBGlSTIxh1zibN8u3zNIO9UJg8gvKuCpdKV7fWXhsZ2zRkU6FhGrgKNgLJ2IRgw==}
+    engines: {node: '>=22'}
+
+  google-logging-utils@2.0.1:
+    resolution: {integrity: sha512-HMhaQghlOTvbcb3c4T5jmmOMtG3JUF1iOQMezaJXL86CDS+Tm2vHd0IeLFRAx3+ewd+bo9E1HFHoy17X5aJa9A==}
+    engines: {node: '>=22'}
+
+  googleapis-common@9.1.0:
+    resolution: {integrity: sha512-UJBElspYPJb0+fI8q0LxARw1hPnwd9yd5NqhKqEUPxjhnB1jdsRP7rlRTBp69JS5Vo10bCiRE9+ISsIG2A+Ttg==}
+    engines: {node: '>=22'}
+
+  googleapis@181.0.0:
+    resolution: {integrity: sha512-fCzsqaVjA5FrA9DdXn4WlnmnLUvqjWx0JGZzcHbSC9iMfb8PK1lTxsvYpnaRf0j4b6usfKlW+YHSKjHnkgqmjQ==}
+    engines: {node: '>=22.0.0'}
 
   gopd@1.2.0:
     resolution: {integrity: sha512-ZUKRh6/kUFoAiTAtTYPZJ3hw9wNxx+BIBOijnlG9PnrJsCcSjs1wyyD6vJpaYtgnzDrKYRSqf3OO6Rfa93xsRg==}
@@ -2120,6 +2161,9 @@ packages:
     resolution: {integrity: sha512-/sM3dO2FOzXjKQhJuo0Q173wf2KOo8t4I8vHy6lF9poUp7bKT0/NHE8fPX23PwfhnykfqnC2xRxOnVw5XuGIaA==}
     engines: {node: '>=6'}
     hasBin: true
+
+  json-bigint@1.0.0:
+    resolution: {integrity: sha512-SiPv/8VpZuWbvLSMtTDU8hEfrZWg/mH/nV/b4o0CYbSxu1UIQPLdwKOCIyLQX+VIPO5vrLX3i8qtqFyhdPSUSQ==}
 
   json-schema-traverse@1.0.0:
     resolution: {integrity: sha512-NM8/P9n3XjXhIZn1lLhkFaACTOURQXjWhV4BA/RnOv8xvgqtqpAX9IO4mRQxSx1Rlo4tqzeqb0sOlruaOy3dug==}
@@ -2534,6 +2578,10 @@ packages:
 
   pump@3.0.4:
     resolution: {integrity: sha512-VS7sjc6KR7e1ukRFhQSY5LM2uBWAUPiOPa/A3mkKmiMwSmRFUITt0xuj+/lesgnCv+dPIEYlkzrcyXgquIHMcA==}
+
+  qs@6.16.0:
+    resolution: {integrity: sha512-h6fhOIaRrID2CbEY2fqs+7t+UXZo+MLAnU5gRIq85uFtdiUPCdsApMlHhXogKVM4HM2DVbIjGNTTYH2OcmP1vA==}
+    engines: {node: '>=0.6'}
 
   queue-microtask@1.2.3:
     resolution: {integrity: sha512-NuaNSa6flKT5JaSYQzJok04JzTL1CA6aGhv5rfLW3PgqA+M2ChpZQnAC8h8i4ZFkBS8X5RqkDBHA7r4hej3K9A==}
@@ -3018,6 +3066,9 @@ packages:
 
   uqr@0.1.3:
     resolution: {integrity: sha512-0rjE8iEJe4YmT9TOhwsZtqCMRLc5DXZUI2UEYUUg63ikBkqqE5EYWaI0etFe/5KUcmcYwLih2RND1kq+hrUJXA==}
+
+  url-template@2.0.8:
+    resolution: {integrity: sha512-XdVKMF4SJ0nP/O7XIPB0JwAEuT9lDIYnNsK8yGVe43y0AWoKeJNdv3ZNWh7ksJ6KqQFjOO6ox/VEitLnaVNufw==}
 
   urlpattern-polyfill@10.1.0:
     resolution: {integrity: sha512-IGjKp/o0NL3Bso1PymYURCJxMPNAf/ILOpendP9f5B6e1rTJgdgiOvgfoT8VxCAdY+Wisb9uhGaJJf3yZ2V9nw==}
@@ -3785,6 +3836,10 @@ snapshots:
     dependencies:
       '@netlify/types': 2.8.0
 
+  '@netlify/functions@6.0.0':
+    dependencies:
+      '@netlify/types': 3.0.0
+
   '@netlify/headers-parser@10.1.1':
     dependencies:
       escape-string-regexp: 5.0.0
@@ -3865,6 +3920,8 @@ snapshots:
       mime-types: 3.0.2
 
   '@netlify/types@2.8.0': {}
+
+  '@netlify/types@3.0.0': {}
 
   '@netlify/vite-plugin@2.12.9(rollup@4.63.2)(vite@5.4.21(@types/node@22.20.2))':
     dependencies:
@@ -4423,6 +4480,8 @@ snapshots:
       jsonpointer: 5.0.1
       leven: 3.1.0
 
+  bignumber.js@9.3.1: {}
+
   bindings@1.5.0:
     dependencies:
       file-uri-to-path: 1.0.0
@@ -4976,6 +5035,8 @@ snapshots:
       signal-exit: 4.1.0
       strip-final-newline: 3.0.0
 
+  extend@3.0.2: {}
+
   extract-zip@2.0.1:
     dependencies:
       debug: 4.4.3
@@ -5070,6 +5131,22 @@ snapshots:
 
   functions-have-names@1.2.3: {}
 
+  gaxios@7.3.1:
+    dependencies:
+      extend: 3.0.2
+      https-proxy-agent: 7.0.6
+      node-fetch: 3.3.2
+    transitivePeerDependencies:
+      - supports-color
+
+  gcp-metadata@9.0.4:
+    dependencies:
+      gaxios: 7.3.1
+      google-logging-utils: 2.0.1
+      json-bigint: 1.0.0
+    transitivePeerDependencies:
+      - supports-color
+
   generator-function@2.0.1: {}
 
   gensync@1.0.0-beta.2: {}
@@ -5133,6 +5210,37 @@ snapshots:
   gonzales-pe@4.3.0:
     dependencies:
       minimist: 1.2.8
+
+  google-auth-library@11.1.0:
+    dependencies:
+      base64-js: 1.5.1
+      ecdsa-sig-formatter: 1.0.11
+      gaxios: 7.3.1
+      gcp-metadata: 9.0.4
+      google-logging-utils: 2.0.1
+      jws: 4.0.1
+    transitivePeerDependencies:
+      - supports-color
+
+  google-logging-utils@2.0.1: {}
+
+  googleapis-common@9.1.0:
+    dependencies:
+      extend: 3.0.2
+      gaxios: 7.3.1
+      google-auth-library: 11.1.0
+      google-logging-utils: 2.0.1
+      qs: 6.16.0
+      url-template: 2.0.8
+    transitivePeerDependencies:
+      - supports-color
+
+  googleapis@181.0.0:
+    dependencies:
+      google-auth-library: 11.1.0
+      googleapis-common: 9.1.0
+    transitivePeerDependencies:
+      - supports-color
 
   gopd@1.2.0: {}
 
@@ -5405,6 +5513,10 @@ snapshots:
   js-tokens@4.0.0: {}
 
   jsesc@3.1.0: {}
+
+  json-bigint@1.0.0:
+    dependencies:
+      bignumber.js: 9.3.1
 
   json-schema-traverse@1.0.0: {}
 
@@ -5793,6 +5905,11 @@ snapshots:
     dependencies:
       end-of-stream: 1.4.5
       once: 1.4.0
+
+  qs@6.16.0:
+    dependencies:
+      es-define-property: 1.0.1
+      side-channel: 1.1.1
 
   queue-microtask@1.2.3: {}
 
@@ -6343,6 +6460,8 @@ snapshots:
       picocolors: 1.1.1
 
   uqr@0.1.3: {}
+
+  url-template@2.0.8: {}
 
   urlpattern-polyfill@10.1.0: {}
 
