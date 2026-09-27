@@ -5,6 +5,7 @@ import Contact from './pages/Contact';
 import DiscoverySession from './pages/DiscoverySession';
 import ForMuslims from './pages/ForMuslims';
 import Home from './pages/Home';
+import WebsiteForYourBusiness from './pages/WebsiteForYourBusiness';
 
 export default function App() {
   return (
@@ -15,6 +16,7 @@ export default function App() {
           <Route path="contact" element={<Contact />} />
           <Route path="discovery-session" element={<DiscoverySession />} />
           <Route path="for-muslims" element={<ForMuslims />} />
+          <Route path="website-for-your-business" element={<WebsiteForYourBusiness />} />
           <Route path="portal" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

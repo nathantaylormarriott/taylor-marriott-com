@@ -65,7 +65,8 @@ export default function Shell() {
   const isContactRoute = location.pathname === '/contact';
   const isDiscoveryRoute = location.pathname === '/discovery-session';
   const isForMuslimsRoute = location.pathname === '/for-muslims';
-  const isHubRoute = isContactRoute || isDiscoveryRoute || isForMuslimsRoute;
+  const isWebsiteOfferRoute = location.pathname === '/website-for-your-business';
+  const isHubRoute = isContactRoute || isDiscoveryRoute || isForMuslimsRoute || isWebsiteOfferRoute;
 
   useEffect(() => {
     if (reduced || isMobile) return;
@@ -164,19 +165,23 @@ export default function Shell() {
       document.title = 'Discovery session — Taylor-Marriott';
       return;
     }
+    if (isWebsiteOfferRoute) {
+      document.title = 'Website for your business — £299 | Taylor-Marriott';
+      return;
+    }
     document.title = isContactRoute
       ? 'Contact — Taylor-Marriott'
       : 'Taylor-Marriott — Design & Build';
-  }, [isContactRoute, isDiscoveryRoute, isForMuslimsRoute]);
+  }, [isContactRoute, isDiscoveryRoute, isForMuslimsRoute, isWebsiteOfferRoute]);
 
   useEffect(() => {
     const theme = isForMuslimsRoute
       ? SCENE_THEMES.muslims.nebula
-      : isContactRoute || isDiscoveryRoute
+      : isContactRoute || isDiscoveryRoute || isWebsiteOfferRoute
         ? SCENE_THEMES.contact.nebula
         : SCENE_THEMES.home.nebula;
     sceneApiRef.current?.setNebula?.(theme);
-  }, [isContactRoute, isDiscoveryRoute, isForMuslimsRoute]);
+  }, [isContactRoute, isDiscoveryRoute, isForMuslimsRoute, isWebsiteOfferRoute]);
 
   useEffect(() => {
     const lockHomeScroll = isMobile && !HOME_BELOW_HERO;
@@ -208,6 +213,8 @@ export default function Shell() {
 
     // Entering /discovery-session — DiscoverySession owns page chrome reveal.
     if (nextPath === '/discovery-session') return;
+
+    if (nextPath === '/website-for-your-business') return;
 
     transitioningRef.current = true;
     routeTweenRef.current?.kill();
@@ -293,12 +300,12 @@ export default function Shell() {
             <img src={taylorMarriottWordmark} alt="Taylor-Marriott" width={180} height={24} />
           </Link>
           <div className="site-head-actions">
-            {isContactRoute || isDiscoveryRoute ? (
+            {isContactRoute || isDiscoveryRoute || isWebsiteOfferRoute ? (
               <Link
                 to="/"
                 className="head-contact head-action"
                 onClick={(e) => {
-                  if (reduced || (!isContactRoute && !isDiscoveryRoute)) return;
+                  if (reduced || (!isContactRoute && !isDiscoveryRoute && !isWebsiteOfferRoute)) return;
                   e.preventDefault();
                   beginPageRouteTransition('/');
                 }}
