@@ -281,6 +281,114 @@
               about: { '@id': ORIGIN + '/#business' },
               inLanguage: 'en-GB'
             }
+          },
+          '/website-for-your-business': {
+            title: 'Website for Your Local Business — £299 One-Time | Free Hosting | Taylor-Marriott',
+            description:
+              'Get a modern local business website for a one-time £299 fee with free Netlify hosting, unlimited changes within reasonable use, contact form, maps and local UK SEO. Taylor-Marriott Limited — preview demo within 24 hours.',
+            canonical: ORIGIN + '/website-for-your-business',
+            jsonLd: [
+              {
+                '@type': 'WebPage',
+                '@id': ORIGIN + '/website-for-your-business#webpage',
+                url: ORIGIN + '/website-for-your-business',
+                name: 'Website for your local business — £299 one-time',
+                description:
+                  'Fixed-price local business website for UK companies: £299 one-time fee, free hosting, contact form, maps, share hub and local SEO. Demo preview within 24 hours.',
+                isPartOf: { '@id': ORIGIN + '/#website' },
+                about: { '@id': ORIGIN + '/#business' },
+                inLanguage: 'en-GB',
+                speakable: {
+                  '@type': 'SpeakableSpecification',
+                  cssSelector: ['.speakable-offer-headline', '.speakable-offer-summary']
+                }
+              },
+              {
+                '@type': 'BreadcrumbList',
+                '@id': ORIGIN + '/website-for-your-business#breadcrumbs',
+                itemListElement: [
+                  {
+                    '@type': 'ListItem',
+                    position: 1,
+                    name: 'Home',
+                    item: ORIGIN + '/'
+                  },
+                  {
+                    '@type': 'ListItem',
+                    position: 2,
+                    name: 'Website for your business',
+                    item: ORIGIN + '/website-for-your-business'
+                  }
+                ]
+              },
+              {
+                '@type': 'Offer',
+                '@id': ORIGIN + '/website-for-your-business#offer',
+                name: 'Local business website — one-time fee',
+                description:
+                  'Professional website for local UK businesses: contact form, maps, social share hub, fast Netlify hosting, and local SEO foundations. Unlimited content changes within reasonable use.',
+                price: '299',
+                priceCurrency: 'GBP',
+                priceValidUntil: '2027-12-31',
+                availability: 'https://schema.org/InStock',
+                url: ORIGIN + '/website-for-your-business',
+                seller: { '@id': ORIGIN + '/#business' },
+                eligibleRegion: { '@type': 'Country', name: 'United Kingdom' },
+                itemOffered: {
+                  '@type': 'Service',
+                  name: 'Local business website design and build',
+                  provider: { '@id': ORIGIN + '/#business' },
+                  areaServed: { '@type': 'Country', name: 'United Kingdom' },
+                  serviceType: 'Local business website'
+                }
+              },
+              {
+                '@type': 'FAQPage',
+                '@id': ORIGIN + '/website-for-your-business#faq',
+                mainEntity: [
+                  {
+                    '@type': 'Question',
+                    name: 'How much does the local business website cost?',
+                    acceptedAnswer: {
+                      '@type': 'Answer',
+                      text: 'The fee is a one-time £299 — not a monthly retainer. Free hosting on fast Netlify static hosting is included, with unlimited content changes within reasonable use.'
+                    }
+                  },
+                  {
+                    '@type': 'Question',
+                    name: 'Who is this website product for?',
+                    acceptedAnswer: {
+                      '@type': 'Answer',
+                      text: 'Local UK businesses that need a trustworthy online presence with contact details, maps, social links and local SEO foundations.'
+                    }
+                  },
+                  {
+                    '@type': 'Question',
+                    name: 'What happens after I submit the form?',
+                    acceptedAnswer: {
+                      '@type': 'Answer',
+                      text: 'Taylor-Marriott reviews your details and responds within 24 hours with a demo preview of your site built from your business information.'
+                    }
+                  },
+                  {
+                    '@type': 'Question',
+                    name: 'Do I need to provide a Google Business Profile?',
+                    acceptedAnswer: {
+                      '@type': 'Answer',
+                      text: 'No — a Google Business Profile link is optional but helps maps, hours and local SEO on your preview.'
+                    }
+                  },
+                  {
+                    '@type': 'Question',
+                    name: 'Is email required on the intake form?',
+                    acceptedAnswer: {
+                      '@type': 'Answer',
+                      text: 'No. Full name, phone number and business name are required. Email is optional.'
+                    }
+                  }
+                ]
+              }
+            ]
           }
         };
         var route = routes[path];
@@ -303,7 +411,9 @@
           var node = document.getElementById('seo-jsonld');
           if (node && route.jsonLd) {
             var graph = JSON.parse(node.textContent)['@graph'];
-            graph.push(route.jsonLd);
+            var ld = route.jsonLd;
+            if (Array.isArray(ld)) ld.forEach(function (item) { graph.push(item); });
+            else graph.push(ld);
             node.textContent = JSON.stringify({ '@context': 'https://schema.org', '@graph': graph });
           }
         } catch (e) {}
@@ -344,6 +454,17 @@
       <input type="tel" name="phone" />
       <input type="text" name="company" />
       <textarea name="message"></textarea>
+    </form>
+    <form name="website-intake" netlify netlify-honeypot="bot-field" hidden>
+      <input type="text" name="name" />
+      <input type="tel" name="phone" />
+      <input type="text" name="business_name" />
+      <input type="email" name="email" />
+      <textarea name="about"></textarea>
+      <input type="url" name="gbp_url" />
+      <input type="url" name="social_url" />
+      <input type="hidden" name="source_path" />
+      <input type="hidden" name="submitted_at" />
     </form>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
