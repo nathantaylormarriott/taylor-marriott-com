@@ -1,6 +1,8 @@
-import React, { useLayoutEffect, useRef } from 'react';
+import React, { useEffect, useLayoutEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import WebsiteIntakeForm from '../components/WebsiteIntakeForm';
+import WebsiteWorkWheel from '../components/WebsiteWorkWheel';
+import { CONFIG } from '../config';
 import { useShell } from '../layout/Shell';
 import {
   fadePageChromeIn,
@@ -10,35 +12,56 @@ import {
 
 const PAGE_PATH = '/website-for-your-business';
 
+const INCLUDED = [
+  {
+    title: 'A site people can trust',
+    body: 'Your name, what you do, how to reach you, and a map — laid out so a first-time visitor knows they are in the right place.',
+  },
+  {
+    title: 'Found locally',
+    body: 'Structured for local search, with room for your Google Business Profile, opening hours and the areas you serve.',
+  },
+  {
+    title: 'Yours to update',
+    body: 'Hosting is included. When your phone number, photos or services change, we update the site within reasonable use.',
+  },
+];
+
+const STEPS = [
+  {
+    n: '01',
+    title: 'Send the essentials',
+    body: 'Name, phone and business name are enough to start. Links and extra context help, but they are not required.',
+  },
+  {
+    n: '02',
+    title: 'Preview within 24 hours',
+    body: 'We come back with a working preview built from what you sent, so you can see the site before you commit.',
+  },
+  {
+    n: '03',
+    title: 'Go live for £299',
+    body: 'One payment. No monthly website fee. We publish when you are happy with the preview.',
+  },
+];
+
 const FAQ_ITEMS = [
   {
-    q: 'How much does the local business website cost?',
-    a: 'The fee is a one-time £299 — not a monthly retainer. Free hosting on fast Netlify static hosting is included, with unlimited content changes within reasonable use, as described in your agreement with Taylor-Marriott.',
+    q: 'Who is this for?',
+    a: 'Local businesses that need a proper presence online: a clear offer, a way to be contacted, and a page customers can find.',
   },
   {
-    q: 'Who is this website product for?',
-    a: 'It is built for local UK businesses that need a trustworthy online presence: clear contact details, maps, a share hub for social links, and local SEO foundations in GBP, structured for customers across the Midlands and the wider United Kingdom.',
+    q: 'What do I have to send?',
+    a: 'Your name, phone number and business name. Email, a short description, your Google Business Profile and social links are useful, not required.',
   },
   {
-    q: 'What happens after I submit the form?',
-    a: 'We review your business name, phone number and any links you share, then respond within 24 hours with a demo preview of your site — a working preview shaped around your business before you commit further.',
-  },
-  {
-    q: 'Do I need to provide a Google Business Profile?',
-    a: 'No. Your Google Business Profile link is optional but helpful — it speeds up accurate maps, hours and local SEO signals on your preview.',
-  },
-  {
-    q: 'Is email required?',
-    a: 'No. Full name, phone number and business name are required so we can call or message you with your preview. Email is optional if you prefer phone contact.',
-  },
-  {
-    q: 'How is this different from a bespoke Taylor-Marriott project?',
-    a: 'This is a focused product for local businesses at a fixed price. For custom software, large marketing builds or digital products, see our main studio services via the contact page or book a discovery session.',
+    q: 'Is this a custom studio project?',
+    a: 'No. This is a fixed-price website. For software, a larger brand build or an ongoing marketing programme, book a discovery session.',
   },
 ];
 
 export default function WebsiteForYourBusiness() {
-  const { reduced, finishRouteTransition, hubRouteHandoffRef } = useShell();
+  const { reduced, finishRouteTransition, hubRouteHandoffRef, sceneApiRef } = useShell();
   const entranceRan = useRef(false);
 
   useLayoutEffect(() => {
@@ -46,6 +69,7 @@ export default function WebsiteForYourBusiness() {
     entranceRan.current = true;
 
     window.scrollTo(0, 0);
+    sceneApiRef.current?.setScrollImmediate?.(0);
 
     const handoff = hubRouteHandoffRef.current;
     hubRouteHandoffRef.current = false;
@@ -61,55 +85,70 @@ export default function WebsiteForYourBusiness() {
       handoff: true,
       onComplete: finishRouteTransition,
     });
-  }, [finishRouteTransition, hubRouteHandoffRef, reduced]);
+  }, [finishRouteTransition, hubRouteHandoffRef, reduced, sceneApiRef]);
+
+  useEffect(() => {
+    if (reduced) return undefined;
+
+    const syncSceneScroll = () => {
+      sceneApiRef.current?.setScroll(window.scrollY * CONFIG.scrollFactor);
+    };
+
+    syncSceneScroll();
+    window.addEventListener('scroll', syncSceneScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', syncSceneScroll);
+      sceneApiRef.current?.setScrollImmediate?.(0);
+    };
+  }, [reduced, sceneApiRef]);
 
   return (
-    <main className="website-offer-page discovery-session-page" id="website-offer-main">
-      <div className="website-offer-inner discovery-session-inner">
-        <div className="website-offer-copy discovery-session-copy">
-          <p className="discovery-session-eyebrow speakable-offer-eyebrow">Local business websites · UK</p>
-          <h1 className="discovery-session-title speakable-offer-headline">
-            A professional website for your local business — £299, once.
+    <main className="website-offer-page" id="website-offer-main">
+      <section className="website-offer-hero">
+        <div className="website-offer-copy">
+          <h1 className="website-offer-title speakable-offer-headline">
+            A professional website<br />for your local business — £299, once.
           </h1>
-          <p className="discovery-session-lead speakable-offer-summary">
-            Taylor-Marriott Limited builds modern, fast websites for local UK businesses: one-time fee of{' '}
-            <strong>£299</strong>, <strong>free hosting included</strong>, and{' '}
-            <strong>unlimited changes within reasonable use</strong>. You get a contact form, maps,
-            social share hub, and local SEO foundations — hosted on Netlify. Submit your details and
-            we&apos;ll reply within <strong>24 hours</strong> with a demo preview built from your business
-            information.
-          </p>
-
-          <ul className="website-offer-highlights" aria-label="What is included">
-            <li>One-time £299 — no monthly website retainer</li>
-            <li>Free hosting on fast static infrastructure (Netlify)</li>
-            <li>Contact form, maps &amp; share hub for your channels</li>
-            <li>Built for local UK SEO (GBP-friendly, GBP pricing)</li>
-            <li>Preview demo tailored from your business details</li>
-          </ul>
-
-          <p className="discovery-session-alt">
-            Need a larger build?{' '}
-            <Link to="/contact" className="discovery-session-alt__link">
-              Contact the studio
-            </Link>{' '}
-            or{' '}
-            <Link to="/discovery-session" className="discovery-session-alt__link">
-              book a discovery session
-            </Link>
-            .
+          <p className="website-offer-lead speakable-offer-summary">
+            A site your customers can find, trust and contact. One payment.
+            No monthly website fee. We reply within 24 hours with a preview
+            built from your business.
           </p>
         </div>
-
-        <div className="website-offer-form discovery-session-booking" id="website-intake">
+        <div className="website-offer-form" id="website-intake">
           <WebsiteIntakeForm sourcePath={PAGE_PATH} />
         </div>
-      </div>
+      </section>
+
+      <WebsiteWorkWheel />
+
+      <section className="website-offer-band" aria-labelledby="website-offer-included">
+        <h2 id="website-offer-included" className="website-offer-band__title">What you get</h2>
+        <ul className="website-offer-cards">
+          {INCLUDED.map((item) => (
+            <li key={item.title}>
+              <h3>{item.title}</h3>
+              <p>{item.body}</p>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section className="website-offer-band" aria-labelledby="website-offer-steps">
+        <h2 id="website-offer-steps" className="website-offer-band__title">How it works</h2>
+        <ol className="website-offer-steps">
+          {STEPS.map((step) => (
+            <li key={step.n}>
+              <span className="website-offer-steps__n">{step.n}</span>
+              <h3>{step.title}</h3>
+              <p>{step.body}</p>
+            </li>
+          ))}
+        </ol>
+      </section>
 
       <section className="website-offer-faq" aria-labelledby="website-offer-faq-title">
-        <h2 id="website-offer-faq-title" className="website-offer-faq__title">
-          Frequently asked questions
-        </h2>
+        <h2 id="website-offer-faq-title" className="website-offer-faq__title">Questions</h2>
         <dl className="website-offer-faq__list speakable-faq">
           {FAQ_ITEMS.map((item) => (
             <div key={item.q} className="website-offer-faq__item">
@@ -118,6 +157,10 @@ export default function WebsiteForYourBusiness() {
             </div>
           ))}
         </dl>
+        <p className="website-offer-close">
+          Building something beyond a local site?{' '}
+          <Link to="/discovery-session" className="website-offer-link">Book a discovery session</Link>.
+        </p>
       </section>
     </main>
   );

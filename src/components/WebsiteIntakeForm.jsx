@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import ContactFormCard from './ContactFormCard';
+import GlassButton from './GlassButton';
 import GlassField from './GlassField';
 import { FORM_NAME, submitWebsiteIntakeForm } from '../lib/websiteIntakeForm';
 
@@ -10,7 +11,6 @@ export default function WebsiteIntakeForm({ sourcePath = '/website-for-your-busi
   const [status, setStatus] = useState('idle');
   const [wobbleFields, setWobbleFields] = useState([]);
   const [socialRows, setSocialRows] = useState([0]);
-  const [showOptional, setShowOptional] = useState(false);
 
   const triggerWobble = (fields) => {
     setWobbleFields([]);
@@ -39,7 +39,6 @@ export default function WebsiteIntakeForm({ sourcePath = '/website-for-your-busi
       setStatus('success');
       form.reset();
       setSocialRows([0]);
-      setShowOptional(false);
     } catch {
       setStatus('error');
     }
@@ -59,7 +58,7 @@ export default function WebsiteIntakeForm({ sourcePath = '/website-for-your-busi
             Questions in the meantime?{' '}
             <a href="mailto:nathan@taylor-marriott.com">nathan@taylor-marriott.com</a>
           </p>
-          <Link to="/" className="website-intake-success__home">
+          <Link to="/" className="contact-submit website-intake-success__home">
             Return to home
           </Link>
         </div>
@@ -90,16 +89,12 @@ export default function WebsiteIntakeForm({ sourcePath = '/website-for-your-busi
           </label>
         </p>
 
-        <p className="website-intake-form__intro">
-          Start with the essentials — we only need a few details to begin your preview.
-        </p>
-
+        <div className="website-intake-fields">
         <GlassField
           id="intake-name"
           label="Full name *"
           name="name"
           autoComplete="name"
-          liquid={false}
           wobble={wobbleFields.includes('name')}
         />
 
@@ -109,7 +104,6 @@ export default function WebsiteIntakeForm({ sourcePath = '/website-for-your-busi
           name="phone"
           type="tel"
           autoComplete="tel"
-          liquid={false}
           wobble={wobbleFields.includes('phone')}
         />
 
@@ -118,86 +112,68 @@ export default function WebsiteIntakeForm({ sourcePath = '/website-for-your-busi
           label="Business name *"
           name="business_name"
           autoComplete="organization"
-          liquid={false}
           wobble={wobbleFields.includes('business_name')}
         />
 
-        {!showOptional ? (
+        <GlassField
+          id="intake-email"
+          label="Email"
+          name="email"
+          type="email"
+          autoComplete="email"
+          wobble={wobbleFields.includes('email')}
+        />
+
+        <GlassField
+          id="intake-about"
+          label="About your business"
+          name="about"
+          multiline
+          rows={3}
+        />
+
+        <GlassField
+          id="intake-gbp"
+          label="Google Business Profile link"
+          name="gbp_url"
+          type="url"
+          autoComplete="url"
+          placeholder="Google Business Profile link"
+          wobble={wobbleFields.includes('gbp_url')}
+        />
+
+        <div className="website-intake-form__social">
+          {socialRows.map((rowId, index) => (
+            <GlassField
+              key={rowId}
+              id={`intake-social-${rowId}`}
+              label="Social link"
+              name="social_url"
+              type="url"
+              placeholder="Social link"
+              wobble={wobbleFields.includes(`social_url_${index}`)}
+            />
+          ))}
           <button
             type="button"
-            className="website-intake-form__toggle"
-            onClick={() => setShowOptional(true)}
+            className="website-intake-form__add-social"
+            aria-label="Add another social link"
+            onClick={() => setSocialRows((rows) => [...rows, Date.now()])}
           >
-            Add email, links &amp; extra context (optional)
+            <span className="website-intake-form__add-social-plus" aria-hidden="true">+</span>
+            Social link
           </button>
-        ) : (
-          <div className="website-intake-form__optional">
-            <GlassField
-              id="intake-email"
-              label="Email (optional)"
-              name="email"
-              type="email"
-              autoComplete="email"
-              liquid={false}
-              wobble={wobbleFields.includes('email')}
-            />
+        </div>
+        </div>
 
-            <GlassField
-              id="intake-about"
-              label="Tell us about your business (optional)"
-              name="about"
-              multiline
-              rows={3}
-              liquid={false}
-            />
-
-            <GlassField
-              id="intake-gbp"
-              label="Google Business Profile link (optional)"
-              name="gbp_url"
-              type="url"
-              autoComplete="url"
-              placeholder="https://"
-              liquid={false}
-              wobble={wobbleFields.includes('gbp_url')}
-            />
-
-            <fieldset className="website-intake-form__social">
-              <legend className="website-intake-form__social-legend">Social media links (optional)</legend>
-              {socialRows.map((rowId, index) => (
-                <GlassField
-                  key={rowId}
-                  id={`intake-social-${rowId}`}
-                  label={index === 0 ? 'Social profile URL' : 'Additional social URL'}
-                  name="social_url"
-                  type="url"
-                  placeholder="https://"
-                  liquid={false}
-                  wobble={wobbleFields.includes(`social_url_${index}`)}
-                />
-              ))}
-              <button
-                type="button"
-                className="website-intake-form__add-social"
-                onClick={() => setSocialRows((rows) => [...rows, Date.now()])}
-              >
-                + Add another social link
-              </button>
-            </fieldset>
-          </div>
-        )}
-
-        <button
-          className="contact-submit contact-submit--text website-intake-form__submit"
+        <GlassButton
           type="submit"
+          className="contact-submit website-intake-form__submit"
+          liquid={false}
           disabled={status === 'sending'}
         >
-          {status === 'sending' ? 'Sending…' : 'Request my £299 website preview'}
-        </button>
-
-        <p className="website-intake-form__fine mono">
-          One-time £299 · Free hosting included · Taylor-Marriott Limited
-        </p>
+          {status === 'sending' ? 'Sending…' : 'Request preview'}
+        </GlassButton>
 
         {status === 'error' && (
           <p className="contact-error mono">

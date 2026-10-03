@@ -66,7 +66,6 @@ export default function Shell() {
   const isDiscoveryRoute = location.pathname === '/discovery-session';
   const isForMuslimsRoute = location.pathname === '/for-muslims';
   const isWebsiteOfferRoute = location.pathname === '/website-for-your-business';
-  const isHubRoute = isContactRoute || isDiscoveryRoute || isForMuslimsRoute || isWebsiteOfferRoute;
 
   useEffect(() => {
     if (reduced || isMobile) return;
@@ -185,12 +184,17 @@ export default function Shell() {
 
   useEffect(() => {
     const lockHomeScroll = isMobile && !HOME_BELOW_HERO;
-    document.documentElement.classList.toggle('contact-route', isHubRoute);
-    document.documentElement.classList.toggle('site-scroll-lock', lockHomeScroll && !isHubRoute);
+    const lockViewport = isContactRoute || isDiscoveryRoute || isForMuslimsRoute;
+    document.documentElement.classList.toggle('contact-route', lockViewport);
+    document.documentElement.classList.toggle('offer-scroll', isWebsiteOfferRoute);
+    document.documentElement.classList.toggle(
+      'site-scroll-lock',
+      lockHomeScroll && !lockViewport && !isWebsiteOfferRoute,
+    );
     return () => {
-      document.documentElement.classList.remove('contact-route', 'site-scroll-lock');
+      document.documentElement.classList.remove('contact-route', 'site-scroll-lock', 'offer-scroll');
     };
-  }, [isMobile, isHubRoute]);
+  }, [isMobile, isContactRoute, isDiscoveryRoute, isForMuslimsRoute, isWebsiteOfferRoute]);
 
   useLayoutEffect(() => {
     const nextPath = location.pathname;

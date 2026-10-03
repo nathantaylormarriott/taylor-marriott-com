@@ -70,7 +70,7 @@ Also works with clients across the UK, US, Canada and EU remotely.
 
 - URL: https://taylor-marriott.com/website-for-your-business
 - Price: £299 one-time (GBP), not a monthly retainer
-- Includes: free Netlify hosting, contact form, maps, social share hub, local UK SEO foundations, unlimited changes within reasonable use
+- Includes: hosting, contact form, maps, social links, local SEO foundations, content updates within reasonable use
 - Intake: Netlify form `website-intake` — required fields name, phone, business_name; optional email, about, Google Business Profile URL, social URLs
 - After submit: Taylor-Marriott responds within 24 hours with a demo/preview site built from submitted business details
 - Contact for product enquiries: nathan@taylor-marriott.com
