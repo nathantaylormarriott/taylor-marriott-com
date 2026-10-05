@@ -247,6 +247,14 @@
       (function () {
         var ORIGIN = 'https://taylor-marriott.com';
         var path = (location.pathname || '/').replace(/\/+$/, '') || '/';
+        if (path === '/pipeline') {
+          document.title = 'Pipeline';
+          var robots = document.querySelector('meta[name="robots"]');
+          if (robots) robots.setAttribute('content', 'noindex, nofollow, noarchive');
+          var canon = document.getElementById('seo-canonical');
+          if (canon) canon.removeAttribute('href');
+          return;
+        }
         var routes = {
           '/for-muslims': {
             title: 'For Muslims — Web Design & Digital Services | Taylor-Marriott',

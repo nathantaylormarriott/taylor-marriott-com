@@ -2,6 +2,7 @@
 
 User-agent: *
 Allow: /
+Disallow: /pipeline
 
 # AI crawlers — welcome to public marketing pages
 User-agent: GPTBot

@@ -66,6 +66,7 @@ export default function Shell() {
   const isDiscoveryRoute = location.pathname === '/discovery-session';
   const isForMuslimsRoute = location.pathname === '/for-muslims';
   const isWebsiteOfferRoute = location.pathname === '/website-for-your-business';
+  const isPipelineRoute = location.pathname === '/pipeline';
 
   useEffect(() => {
     if (reduced || isMobile) return;
@@ -168,10 +169,14 @@ export default function Shell() {
       document.title = 'Website for your business — £299 | Taylor-Marriott';
       return;
     }
+    if (isPipelineRoute) {
+      document.title = 'Pipeline';
+      return;
+    }
     document.title = isContactRoute
       ? 'Contact — Taylor-Marriott'
       : 'Taylor-Marriott — Design & Build';
-  }, [isContactRoute, isDiscoveryRoute, isForMuslimsRoute, isWebsiteOfferRoute]);
+  }, [isContactRoute, isDiscoveryRoute, isForMuslimsRoute, isWebsiteOfferRoute, isPipelineRoute]);
 
   useEffect(() => {
     const theme = isForMuslimsRoute
@@ -187,14 +192,15 @@ export default function Shell() {
     const lockViewport = isContactRoute || isDiscoveryRoute || isForMuslimsRoute;
     document.documentElement.classList.toggle('contact-route', lockViewport);
     document.documentElement.classList.toggle('offer-scroll', isWebsiteOfferRoute);
+    document.documentElement.classList.toggle('pipeline-route', isPipelineRoute);
     document.documentElement.classList.toggle(
       'site-scroll-lock',
-      lockHomeScroll && !lockViewport && !isWebsiteOfferRoute,
+      lockHomeScroll && !lockViewport && !isWebsiteOfferRoute && !isPipelineRoute,
     );
     return () => {
-      document.documentElement.classList.remove('contact-route', 'site-scroll-lock', 'offer-scroll');
+      document.documentElement.classList.remove('contact-route', 'site-scroll-lock', 'offer-scroll', 'pipeline-route');
     };
-  }, [isMobile, isContactRoute, isDiscoveryRoute, isForMuslimsRoute, isWebsiteOfferRoute]);
+  }, [isMobile, isContactRoute, isDiscoveryRoute, isForMuslimsRoute, isWebsiteOfferRoute, isPipelineRoute]);
 
   useLayoutEffect(() => {
     const nextPath = location.pathname;
