@@ -74,6 +74,7 @@ export default function Pipeline() {
   const [draggingId, setDraggingId] = useState('');
   const [insertBeforeId, setInsertBeforeId] = useState(null);
   const [logoVersion, setLogoVersion] = useState({});
+  const [showNotes, setShowNotes] = useState(false);
 
   useEffect(() => {
     document.title = 'Pipeline';
@@ -256,6 +257,9 @@ export default function Pipeline() {
         <div className="pipeline-app">
           <div className="pipeline-toolbar">
             <p className="pipeline-status">{error || notice}</p>
+            <button type="button" onClick={() => setShowNotes((on) => !on)}>
+              {showNotes ? 'Hide notes' : 'Show notes'}
+            </button>
             <button type="button" onClick={addCard}>Add client</button>
           </div>
           <div className="pipeline-board">
@@ -319,14 +323,16 @@ export default function Pipeline() {
                   aria-label="Client name"
                   onChange={(event) => updateCard(card.id, { name: event.target.value })}
                 />
-                <textarea
-                  className="pipeline-card__notes"
-                  value={card.notes}
-                  placeholder="Notes"
-                  aria-label="Notes"
-                  rows={6}
-                  onChange={(event) => updateCard(card.id, { notes: event.target.value })}
-                />
+                {showNotes ? (
+                  <textarea
+                    className="pipeline-card__notes"
+                    value={card.notes}
+                    placeholder="Notes"
+                    aria-label="Notes"
+                    rows={6}
+                    onChange={(event) => updateCard(card.id, { notes: event.target.value })}
+                  />
+                ) : null}
                 <button type="button" className="pipeline-card__remove" onClick={() => removeCard(card.id)}>
                   Remove
                 </button>
@@ -359,7 +365,7 @@ export default function Pipeline() {
                 />
               ) : null}
               <h2>{card.name || 'Untitled client'}</h2>
-              <p>{card.notes}</p>
+              {showNotes && card.notes ? <p>{card.notes}</p> : null}
             </article>
           ))}
         </div>
