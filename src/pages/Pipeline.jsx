@@ -23,6 +23,29 @@ async function pipelineFetch(path, options = {}) {
   return data;
 }
 
+async function uploadLogo(cardId, file) {
+  const response = await fetch(`/api/pipeline/logo/${encodeURIComponent(cardId)}`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': file.type,
+      'X-Pipeline': '1',
+    },
+    body: file,
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || 'Logo upload failed');
+  return data;
+}
+
+async function deleteLogo(cardId) {
+  await fetch(`/api/pipeline/logo/${encodeURIComponent(cardId)}`, {
+    method: 'DELETE',
+    credentials: 'include',
+    headers: { 'X-Pipeline': '1' },
+  }).catch(() => {});
+}
+
 function reorderCard(board, cardId, beforeId) {
   const card = board.cards.find((item) => item.id === cardId);
   if (!card) return board;
@@ -50,6 +73,7 @@ export default function Pipeline() {
   const dragRef = useRef(null);
   const [draggingId, setDraggingId] = useState('');
   const [insertBeforeId, setInsertBeforeId] = useState(null);
+  const [logoVersion, setLogoVersion] = useState({});
 
   useEffect(() => {
     document.title = 'Pipeline';
@@ -128,7 +152,7 @@ export default function Pipeline() {
   const addCard = () => {
     const id = crypto.randomUUID();
     setBoard((current) => ({
-      cards: [...current.cards, { id, name: '', notes: '' }],
+      cards: [...current.cards, { id, name: '', notes: '', hasLogo: false }],
     }));
   };
 
@@ -139,9 +163,33 @@ export default function Pipeline() {
   };
 
   const removeCard = (id) => {
+    deleteLogo(id);
     setBoard((current) => ({
       cards: current.cards.filter((card) => card.id !== id),
     }));
+  };
+
+  const onLogoPick = (cardId) => async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setNotice('Uploading logo…');
+    setError('');
+    try {
+      await uploadLogo(cardId, file);
+      updateCard(cardId, { hasLogo: true });
+      setLogoVersion((current) => ({ ...current, [cardId]: Date.now() }));
+      setNotice('Saved');
+    } catch (err) {
+      setNotice('');
+      setError(err.message);
+    }
+  };
+
+  const clearLogo = (cardId) => async () => {
+    await deleteLogo(cardId);
+    updateCard(cardId, { hasLogo: false });
+    setLogoVersion((current) => ({ ...current, [cardId]: Date.now() }));
   };
 
   const findInsertBefore = (clientY, draggedId, cards) => {
@@ -236,6 +284,34 @@ export default function Pipeline() {
                 >
                   Move
                 </span>
+                <div className="pipeline-card__logo-row">
+                  <div className="pipeline-card__logo-slot">
+                    {card.hasLogo ? (
+                      <img
+                        className="pipeline-card__logo"
+                        src={`/api/pipeline/logo/${encodeURIComponent(card.id)}?v=${logoVersion[card.id] || 0}`}
+                        alt=""
+                      />
+                    ) : (
+                      <span className="pipeline-card__logo-placeholder" aria-hidden="true">Logo</span>
+                    )}
+                  </div>
+                  <div className="pipeline-card__logo-actions">
+                    <label className="pipeline-card__logo-upload">
+                      {card.hasLogo ? 'Change logo' : 'Add logo'}
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/gif"
+                        onChange={onLogoPick(card.id)}
+                      />
+                    </label>
+                    {card.hasLogo ? (
+                      <button type="button" className="pipeline-card__remove" onClick={clearLogo(card.id)}>
+                        Remove logo
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
                 <input
                   className="pipeline-card__name"
                   value={card.name}
@@ -275,6 +351,13 @@ export default function Pipeline() {
         <div className="pipeline-print__row">
           {board.cards.map((card) => (
             <article key={card.id}>
+              {card.hasLogo ? (
+                <img
+                  className="pipeline-print__logo"
+                  src={`/api/pipeline/logo/${encodeURIComponent(card.id)}?v=${logoVersion[card.id] || 0}`}
+                  alt=""
+                />
+              ) : null}
               <h2>{card.name || 'Untitled client'}</h2>
               <p>{card.notes}</p>
             </article>

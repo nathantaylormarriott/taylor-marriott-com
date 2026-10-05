@@ -54,6 +54,7 @@ export function sanitizeBoard(input) {
       id,
       name: cleanText(card?.name, 120),
       notes: cleanText(card?.notes, 4000),
+      hasLogo: Boolean(card?.hasLogo),
     });
   });
 
