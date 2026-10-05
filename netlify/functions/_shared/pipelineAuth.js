@@ -35,8 +35,15 @@ const MAX_FAILURES = 8;
 const LOCK_MS = 20 * 60 * 1000;
 
 export function pipelineEnv(name) {
-  const fromNetlify = globalThis.Netlify?.env?.get?.(name);
-  return fromNetlify || process.env[name] || readLocalEnv()[name] || '';
+  const fromProcess = process.env[name];
+  if (fromProcess) return fromProcess;
+  try {
+    const value = globalThis.Netlify?.env?.get?.(name);
+    if (typeof value === 'string' && value.length > 0) return value;
+  } catch {
+    /* runtime may not expose Netlify.env */
+  }
+  return readLocalEnv()[name] || '';
 }
 
 export function clientKey(request, context) {
