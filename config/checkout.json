@@ -1,0 +1,20 @@
+{
+  "_notes": [
+    "Cold-outreach website checkout (website fee + optional yearly domain add-on).",
+    "siteAmountPence: one-time website fee in pence. 29900 = £299.",
+    "checkoutBaseUrl: preview CTA target. Env CHECKOUT_BASE_URL overrides. null = CTA hidden in generator.",
+    "Live domain pricing: yearly GBP = ceil(max(Porkbun registration, renewal) USD cents × usdToGbp). Env CHECKOUT_USD_TO_GBP overrides usdToGbp.",
+    "Basis max(registration, renewal) because Stripe bills the same yearly amount while Porkbun renewal applies from year two.",
+    "renewalLeadDays: client Stripe charge lands this many days before Porkbun expiry (30)."
+  ],
+  "siteAmountPence": 29900,
+  "currency": "gbp",
+  "renewalLeadDays": 30,
+  "checkoutBaseUrl": "https://taylor-marriott.com/checkout",
+  "offeredTlds": ["com", "co.uk", "uk", "net", "org"],
+  "domainPricing": {
+    "usdToGbp": 0.79,
+    "minimumPence": 30,
+    "roundUpToPence": 1
+  }
+}

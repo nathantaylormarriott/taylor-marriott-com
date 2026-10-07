@@ -7,6 +7,8 @@ import ForMuslims from './pages/ForMuslims';
 import Home from './pages/Home';
 import Pipeline from './pages/Pipeline';
 import WebsiteForYourBusiness from './pages/WebsiteForYourBusiness';
+import Checkout from './pages/Checkout';
+import CheckoutDone from './pages/CheckoutDone';
 
 export default function App() {
   return (
@@ -19,6 +21,8 @@ export default function App() {
           <Route path="for-muslims" element={<ForMuslims />} />
           <Route path="website-for-your-business" element={<WebsiteForYourBusiness />} />
           <Route path="pipeline" element={<Pipeline />} />
+          <Route path="checkout" element={<Checkout />} />
+          <Route path="checkout/done" element={<CheckoutDone />} />
           <Route path="portal" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
