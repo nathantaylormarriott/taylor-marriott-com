@@ -14,6 +14,10 @@ export default function GlassField({
   form,
   liquid = true,
   sceneBlur = false,
+  value,
+  onChange,
+  disabled,
+  ...inputRest
 }) {
   const InputTag = multiline ? 'textarea' : 'input';
   const fieldPlaceholder = placeholder ?? label;
@@ -36,6 +40,10 @@ export default function GlassField({
           rows={rows}
           placeholder={fieldPlaceholder}
           aria-label={label}
+          value={value}
+          onChange={onChange}
+          disabled={disabled}
+          {...inputRest}
         />
       </GlassSurface>
     </div>

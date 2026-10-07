@@ -52,3 +52,23 @@
   [headers.values]
     X-Robots-Tag = "noindex, nofollow, noarchive"
     Cache-Control = "no-store"
+
+[[headers]]
+  for = "/checkout"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow, noarchive"
+
+[[headers]]
+  for = "/checkout/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow, noarchive"
+
+[[headers]]
+  for = "/api/domain-search"
+  [headers.values]
+    Cache-Control = "no-store"
+
+[[headers]]
+  for = "/api/create-session"
+  [headers.values]
+    Cache-Control = "no-store"

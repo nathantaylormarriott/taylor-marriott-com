@@ -67,6 +67,8 @@ export default function Shell() {
   const isForMuslimsRoute = location.pathname === '/for-muslims';
   const isWebsiteOfferRoute = location.pathname === '/website-for-your-business';
   const isPipelineRoute = location.pathname === '/pipeline';
+  const isCheckoutRoute =
+    location.pathname === '/checkout' || location.pathname.startsWith('/checkout/');
 
   useEffect(() => {
     if (reduced || isMobile) return;
@@ -173,34 +175,58 @@ export default function Shell() {
       document.title = 'Pipeline';
       return;
     }
+    if (isCheckoutRoute) {
+      document.title = 'Checkout — Taylor-Marriott';
+      return;
+    }
     document.title = isContactRoute
       ? 'Contact — Taylor-Marriott'
       : 'Taylor-Marriott — Design & Build';
-  }, [isContactRoute, isDiscoveryRoute, isForMuslimsRoute, isWebsiteOfferRoute, isPipelineRoute]);
+  }, [
+    isContactRoute,
+    isDiscoveryRoute,
+    isForMuslimsRoute,
+    isWebsiteOfferRoute,
+    isPipelineRoute,
+    isCheckoutRoute,
+  ]);
 
   useEffect(() => {
     const theme = isForMuslimsRoute
       ? SCENE_THEMES.muslims.nebula
-      : isContactRoute || isDiscoveryRoute || isWebsiteOfferRoute
+      : isContactRoute || isDiscoveryRoute || isWebsiteOfferRoute || isCheckoutRoute
         ? SCENE_THEMES.contact.nebula
         : SCENE_THEMES.home.nebula;
     sceneApiRef.current?.setNebula?.(theme);
-  }, [isContactRoute, isDiscoveryRoute, isForMuslimsRoute, isWebsiteOfferRoute]);
+  }, [isContactRoute, isDiscoveryRoute, isForMuslimsRoute, isWebsiteOfferRoute, isCheckoutRoute]);
 
   useEffect(() => {
     const lockHomeScroll = isMobile && !HOME_BELOW_HERO;
     const lockViewport = isContactRoute || isDiscoveryRoute || isForMuslimsRoute;
     document.documentElement.classList.toggle('contact-route', lockViewport);
-    document.documentElement.classList.toggle('offer-scroll', isWebsiteOfferRoute);
+    document.documentElement.classList.toggle('offer-scroll', isWebsiteOfferRoute || isCheckoutRoute);
     document.documentElement.classList.toggle('pipeline-route', isPipelineRoute);
     document.documentElement.classList.toggle(
       'site-scroll-lock',
-      lockHomeScroll && !lockViewport && !isWebsiteOfferRoute && !isPipelineRoute,
+      lockHomeScroll && !lockViewport && !isWebsiteOfferRoute && !isPipelineRoute && !isCheckoutRoute,
     );
     return () => {
-      document.documentElement.classList.remove('contact-route', 'site-scroll-lock', 'offer-scroll', 'pipeline-route');
+      document.documentElement.classList.remove(
+        'contact-route',
+        'site-scroll-lock',
+        'offer-scroll',
+        'pipeline-route',
+      );
     };
-  }, [isMobile, isContactRoute, isDiscoveryRoute, isForMuslimsRoute, isWebsiteOfferRoute, isPipelineRoute]);
+  }, [
+    isMobile,
+    isContactRoute,
+    isDiscoveryRoute,
+    isForMuslimsRoute,
+    isWebsiteOfferRoute,
+    isPipelineRoute,
+    isCheckoutRoute,
+  ]);
 
   useLayoutEffect(() => {
     const nextPath = location.pathname;
@@ -225,6 +251,8 @@ export default function Shell() {
     if (nextPath === '/discovery-session') return;
 
     if (nextPath === '/website-for-your-business') return;
+
+    if (nextPath === '/checkout' || nextPath.startsWith('/checkout/')) return;
 
     transitioningRef.current = true;
     routeTweenRef.current?.kill();
