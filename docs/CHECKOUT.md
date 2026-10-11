@@ -10,7 +10,8 @@ Client-facing checkout for the £299 website fee and an optional yearly domain a
 | `/checkout/done?session_id=…` | Stripe success return |
 | `GET /api/domain-search` | Porkbun availability + live GBP yearly price |
 | `POST /api/create-session` | Stripe Checkout Session (server recomputes amounts) |
-| `POST /api/stripe-webhook` | Signature verify + log metadata (register/connect TODO on bulk box) |
+| `POST /api/stripe-webhook` | Signature verify, queue paid domain order (Netlify Blobs `domain-orders`), start background job |
+| `POST /api/domain-fulfil` | Background function: Porkbun register → DNS → Netlify custom domain (behind kill switches) |
 
 ## Environment (Netlify UI — do not commit)
 
@@ -19,7 +20,10 @@ Client-facing checkout for the £299 website fee and an optional yearly domain a
 | `PORKBUN_API_KEY` | For domain search / session with domain | |
 | `PORKBUN_SECRET_API_KEY` | Same | |
 | `STRIPE_SECRET_KEY` | For pay button | Use `sk_test_…` first |
-| `STRIPE_WEBHOOK_SECRET` | Optional | For `/api/stripe-webhook` |
+| `STRIPE_WEBHOOK_SECRET` | For post-payment domain step | `whsec_…` of the endpoint `https://taylor-marriott.com/api/stripe-webhook` (event `checkout.session.completed`) |
+| `NETLIFY_AUTH_TOKEN` | For post-payment domain step | Finds the client site and sets its custom domain |
+| `DOMAIN_PURCHASE_LIVE` | Kill switch | `1` = really register at Porkbun (live-mode Stripe payments only). Anything else = dry run |
+| `DOMAIN_CONNECT_LIVE` | Kill switch | `1` = really change DNS + Netlify custom domain for a registered domain |
 | `CHECKOUT_USD_TO_GBP` | Recommended | Overrides `config/checkout.json` FX rate |
 | `CHECKOUT_BASE_URL` | Optional | e.g. `https://taylor-marriott.com/checkout` |
 
@@ -53,3 +57,37 @@ Checkout sessions set `client_reference_id=place_id` and metadata: `place_id`, `
 ## Generator integration
 
 Set `checkoutBaseUrl` in the bulk-websites `config/checkout.json` (or `CHECKOUT_BASE_URL` on rebuild) to `https://taylor-marriott.com/checkout` so preview CTAs appear.
+
+## Post-payment domain fulfilment
+
+```
+Stripe checkout.session.completed (paid, metadata.product_type=site_checkout, metadata.domain set)
+  → /api/stripe-webhook   verify signature, store order (Blobs: domain-orders/<session id>), 200 to Stripe
+  → /api/domain-fulfil    background (up to 15 min):
+      1. Porkbun checkDomain: available, not premium, ≤ $100 API cap, and cost ≤ what the client
+         paid (metadata.domain_amount_pence ÷ usdToGbp, +10% FX tolerance)           read only
+      2. Find the Netlify site: _shared/client-sites.js registry, else scan tmbulk-* / tm-preview-*
+         sites for a checkout link with this exact place_id (exactly one match)     read only
+      3. Porkbun /domain/create (dryRun preflight first, Idempotency-Key tm-domain-<session id>),
+         then auto-renew OFF                                       DOMAIN_PURCHASE_LIVE=1 + live-mode payment
+      4. Porkbun DNS: delete parking A/AAAA/ALIAS/CNAME on @, www, *; create
+         ALIAS @ → apex-loadbalancer.netlify.com and CNAME www → <site>.netlify.app   DOMAIN_CONNECT_LIVE=1
+      5. Netlify PATCH /sites/<id> {custom_domain, domain_aliases:[www]} then POST /ssl  DOMAIN_CONNECT_LIVE=1
+```
+
+- Switch off → the exact request is built and stored on the order (secrets as env names), not sent.
+- A **test-mode** Stripe payment never registers a real domain, even with `DOMAIN_PURCHASE_LIVE=1`.
+- Replays: an order that is `registered`/`connected`/`processing` is not queued again. After
+  `error_after_register`, replaying the event retries only DNS + Netlify (never buys twice).
+- Website-only payments (no domain) are acknowledged and ignored here.
+- Yearly domain renewals (`invoice.paid`, `subscription_cycle`) are **not** handled here yet; Porkbun
+  auto-renew is turned off at registration, so a renewal step must be added before the first anniversary.
+- Add each new client site to `netlify/functions/_shared/client-sites.js` (faster, no scan).
+
+Local end-to-end dry run (real Porkbun + Netlify reads, nothing sent):
+
+```
+PORKBUN_API_KEY=… PORKBUN_SECRET_API_KEY=… NETLIFY_AUTH_TOKEN=… \
+  node scripts/domain-fulfil-dryrun.mjs cid-5705786826933327223 srconstructionatherstone.co.uk 448
+npm run test:domain   # unit tests, no network
+```

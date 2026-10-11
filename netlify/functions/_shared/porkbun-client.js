@@ -98,7 +98,7 @@ function summarizeCheck(domain, data) {
   return summarizeResponse(domain, data && data.response, data && data.status);
 }
 
-async function porkbunPost(pathname, extraBody, { headers = {} } = {}) {
+export async function porkbunPost(pathname, extraBody, { headers = {} } = {}) {
   const creds = requireCredentials();
   const res = await fetch(`${API}${pathname}`, {
     method: 'POST',
@@ -201,4 +201,151 @@ export async function getTldPricing(tlds = null) {
       : { registration: null, renewal: null, transfer: null };
   }
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// Post-payment registration + DNS (used by domain-fulfil.js only)
+// ---------------------------------------------------------------------------
+
+/** Porkbun API orders above $100 are refused by Porkbun itself. */
+export const PORKBUN_API_ORDER_CAP_CENTS = 10000;
+
+/** Netlify's documented targets when DNS stays at the registrar. */
+export const NETLIFY_APEX_ALIAS = 'apex-loadbalancer.netlify.com';
+
+export function priceToCents(price) {
+  if (price == null || price === '') return null;
+  const s = String(price).trim();
+  if (/^\d+(\.\d{1,2})?$/.test(s)) {
+    const [d, f = ''] = s.split('.');
+    return Number(d) * 100 + Number((f + '00').slice(0, 2));
+  }
+  const n = Number(price);
+  return Number.isFinite(n) ? Math.round(n * 100) : null;
+}
+
+/**
+ * Build (never send) the POST /domain/create request. Credentials are shown
+ * as env names so the result is safe to log or store.
+ */
+export function buildCreateDomainRequest(domain, costCents, { dryRun = false, idempotencyKey } = {}) {
+  const apex = normalizeDomain(domain);
+  if (!Number.isInteger(costCents) || costCents <= 0) {
+    const err = new Error(`createDomain needs integer cost in cents (got ${costCents})`);
+    err.code = 'BAD_COST';
+    throw err;
+  }
+  const body = {
+    apikey: '<PORKBUN_API_KEY>',
+    secretapikey: '<PORKBUN_SECRET_API_KEY>',
+    cost: costCents,
+    agreeToTerms: 'yes',
+  };
+  if (dryRun === true) body.dryRun = true;
+  const headers = { 'Content-Type': 'application/json' };
+  if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey;
+  return { method: 'POST', url: `${API}/domain/create/${apex}`, headers, body };
+}
+
+/**
+ * REAL registration. Spends Porkbun account credit. Refuses unless
+ * confirmSpend === true (strict). Runs Porkbun's own dryRun preflight first
+ * and stops unless wouldSucceed. Idempotency-Key prevents a double buy on a
+ * retried webhook.
+ */
+export async function createDomain({ domain, costCents, idempotencyKey, confirmSpend } = {}) {
+  if (confirmSpend !== true) {
+    const err = new Error('createDomain refused: confirmSpend !== true. No API call made.');
+    err.code = 'CONFIRM_SPEND_REQUIRED';
+    throw err;
+  }
+  if (!idempotencyKey) {
+    const err = new Error('createDomain needs an idempotencyKey');
+    err.code = 'NO_IDEMPOTENCY_KEY';
+    throw err;
+  }
+  const apex = normalizeDomain(domain);
+  const pre = await porkbunPost(`/domain/create/${encodeURIComponent(apex)}`, {
+    cost: costCents,
+    agreeToTerms: 'yes',
+    dryRun: true,
+  });
+  if (!pre || pre.wouldSucceed !== true) {
+    const err = new Error((pre && pre.message) || `Porkbun preflight: registration would not succeed for ${apex}`);
+    err.code = 'PREFLIGHT_FAILED';
+    err.preflight = {
+      wouldSucceed: pre ? pre.wouldSucceed ?? null : null,
+      sufficientFunds: pre ? pre.sufficientFunds ?? null : null,
+    };
+    throw err;
+  }
+  const data = await porkbunPost(
+    `/domain/create/${encodeURIComponent(apex)}`,
+    { cost: costCents, agreeToTerms: 'yes' },
+    { headers: { 'Idempotency-Key': idempotencyKey } },
+  );
+  return {
+    domain: apex,
+    registered: true,
+    costCents,
+    orderId: data ? data.orderId ?? data.order_id ?? null : null,
+    status: data ? data.status ?? null : null,
+  };
+}
+
+/** Turn Porkbun auto-renew off so renewals only happen after a client pays. */
+export async function setAutoRenewOff(domain) {
+  const apex = normalizeDomain(domain);
+  const data = await porkbunPost(`/domain/updateAutoRenew/${encodeURIComponent(apex)}`, { status: 'off' });
+  return { domain: apex, autoRenew: false, status: data ? data.status ?? null : null };
+}
+
+export async function retrieveDnsRecords(domain) {
+  const apex = normalizeDomain(domain);
+  const data = await porkbunPost(`/dns/retrieve/${encodeURIComponent(apex)}`, {});
+  return Array.isArray(data && data.records) ? data.records : [];
+}
+
+export async function deleteDnsRecord(domain, id) {
+  const apex = normalizeDomain(domain);
+  await porkbunPost(`/dns/delete/${encodeURIComponent(apex)}/${encodeURIComponent(String(id))}`, {});
+  return { domain: apex, id: String(id), deleted: true };
+}
+
+export async function createDnsRecord(domain, { name = '', type, content, ttl = 600 }) {
+  const apex = normalizeDomain(domain);
+  const data = await porkbunPost(`/dns/create/${encodeURIComponent(apex)}`, {
+    name,
+    type,
+    content,
+    ttl: String(ttl),
+  });
+  return { domain: apex, name, type, content, id: data ? data.id ?? null : null };
+}
+
+/**
+ * Records that would clash with pointing apex + www at Netlify: Porkbun's
+ * default parking (ALIAS @ and CNAME *) plus any A/AAAA/ALIAS/CNAME on
+ * apex, www or the wildcard. MX/TXT are kept.
+ */
+export function conflictingDnsRecords(domain, records) {
+  const apex = normalizeDomain(domain);
+  const hosts = new Set([apex, `www.${apex}`, `*.${apex}`]);
+  const types = new Set(['A', 'AAAA', 'ALIAS', 'CNAME']);
+  return (records || []).filter(
+    (r) => r && hosts.has(String(r.name || '').toLowerCase()) && types.has(String(r.type || '').toUpperCase()),
+  );
+}
+
+/** The two records that point a Porkbun-hosted domain at a Netlify site. */
+export function netlifyDnsRecords(siteHostname) {
+  if (!siteHostname || !/\.netlify\.app$/.test(siteHostname)) {
+    const err = new Error(`Need the site's *.netlify.app hostname (got ${siteHostname})`);
+    err.code = 'NO_SITE_HOST';
+    throw err;
+  }
+  return [
+    { name: '', type: 'ALIAS', content: NETLIFY_APEX_ALIAS, ttl: 600 },
+    { name: 'www', type: 'CNAME', content: siteHostname, ttl: 600 },
+  ];
 }

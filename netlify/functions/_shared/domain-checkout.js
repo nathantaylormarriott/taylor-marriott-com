@@ -99,6 +99,8 @@ export function buildSiteCheckoutParams(input = {}, { allowIncomplete = false, c
   const metadata = { product_type: SITE_PRODUCT_TYPE, place_id: placeId, domain: apex };
   const leadDays = Number.isInteger(cfg.renewalLeadDays) ? cfg.renewalLeadDays : DEFAULT_RENEWAL_LEAD_DAYS;
   if (hasDomain) metadata.renewal_lead_days = String(leadDays);
+  // Lets the post-payment step refuse to buy if Porkbun's price has jumped above what the client paid.
+  if (hasDomain) metadata.domain_amount_pence = String(domainAmount);
 
   const lineItems = [
     {
