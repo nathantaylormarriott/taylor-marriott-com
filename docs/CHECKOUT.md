@@ -10,6 +10,7 @@ Client-facing checkout for the £299 website fee and an optional yearly domain a
 | `/checkout/done?session_id=…` | Stripe success return |
 | `GET /api/domain-search` | Normalises pasted URLs; label → `.co.uk`/`.com`/`.uk`; fixed retail price; up to 3 alternatives if taken |
 | `GET /api/domain-suggestions` | Auto-suggested domains from business/trade/town (Porkbun check, cached ~5 min) |
+| `GET /api/client-preview-site?place_id=…` | Resolve the client’s Netlify preview URL for checkout device mockups (registry → config → team scan) |
 | `POST /api/create-session` | Stripe Checkout Session (server recomputes amounts) |
 | `POST /api/stripe-webhook` | Signature verify, queue orders/renewals, start background jobs |
 | `POST /api/domain-fulfil` | Background: Porkbun register → DNS → Netlify custom domain |
@@ -22,7 +23,12 @@ Client-facing checkout for the £299 website fee and an optional yearly domain a
 | `PORKBUN_API_KEY` | For domain search / session with domain | |
 | `PORKBUN_SECRET_API_KEY` | Same | |
 | `STRIPE_SECRET_KEY` | For pay button | Use `sk_test_…` first |
-| `STRIPE_WEBHOOK_SECRET` | Post-payment + renewals | Subscribe the endpoint to **`checkout.session.completed`**, **`invoice.paid`**, **`customer.subscription.deleted`** |
+| `STRIPE_WEBHOOK_SECRET` | Post-payment + renewals | Subscribe the endpoint to **`checkout.session.completed`**, **`invoice.paid`**, **`invoice.payment_failed`**, **`customer.subscription.deleted`**, **`customer.subscription.updated`** |
+| `SENDGRID_API_KEY` | Transactional email | SendGrid API key (Mail Send). If unset, checkout and fulfilment still run; emails are skipped and logged. |
+| `SENDGRID_FROM_EMAIL` | Optional | Default `nathan@taylor-marriott.com` (must match a SendGrid **single sender** or authenticated domain). |
+| `SENDGRID_FROM_NAME` | Optional | Default `Taylor-Marriott` (display name on From). |
+| `SENDGRID_REPLY_TO` | Optional | Default `nathan@taylor-marriott.com`. |
+| `CHECKOUT_ALERT_EMAIL` | Optional | Nathan alerts (failures, dry-run fulfilment, new sales). Default `nathan@taylor-marriott.com`. |
 | `NETLIFY_AUTH_TOKEN` | Fulfilment | Finds the client site and sets its custom domain |
 | `DOMAIN_PURCHASE_LIVE` | Kill switch | `1` = really register/renew at Porkbun (live-mode Stripe only). Anything else = dry run |
 | `DOMAIN_CONNECT_LIVE` | Kill switch | `1` = really change DNS + Netlify custom domain (first purchase only) |
@@ -67,8 +73,42 @@ Yearly renewal (client card via Stripe)
     → /api/domain-renew  Porkbun /domain/renew 1y (DOMAIN_PURCHASE_LIVE, idempotent per invoice)
 
 Failed / cancelled subscription
-  customer.subscription.deleted (or unpaid after Stripe dunning)
-    → mark subscription lapsing in Blobs; no Porkbun renew, no spend on our side
+  invoice.payment_failed
+    → email Nathan (idempotent per invoice)
+  customer.subscription.updated (status unpaid or canceled)
+    → mark lapsing + email Nathan
+  customer.subscription.deleted
+    → mark subscription lapsing in Blobs; email Nathan; no Porkbun renew, no spend on our side
+```
+
+## Transactional email (SendGrid)
+
+Checkout sends email via **SendGrid** from Netlify Functions (`netlify/functions/_shared/mailer.js`). Email never blocks payment or domain jobs — failures are logged only. Each message is **idempotent** (Netlify Blobs store `checkout-emails`).
+
+| When | To | Notes |
+|------|-----|--------|
+| `checkout.session.completed` (paid) | Nathan + client | Sale summary; client gets what they bought and next steps |
+| Domain fulfilment succeeds (live connect) | Client | Domain is live |
+| Domain fulfilment dry-run / test | Nathan only | Subject/body prefixed **`[DRY-RUN]`** — client is not told the domain is live |
+| Domain fulfilment error | Nathan | Includes business, domain, error |
+| Domain renew error | Nathan | After `domain-renew` background job fails |
+| `invoice.payment_failed` | Nathan | Yearly domain charge failed |
+| Subscription lapsing | Nathan | Cancelled or unpaid |
+
+### What Nathan must set up (SendGrid + DNS)
+
+1. **SendGrid account** — create an API key with **Mail Send** permission only. In Netlify → Environment variables, set **`SENDGRID_API_KEY`** (never commit it).
+2. **Sender** — authenticate the domain **`taylor-marriott.com`** in SendGrid (Settings → Sender Authentication → Authenticate Your Domain). Use the DNS host for the domain (often Porkbun or Netlify DNS). SendGrid will show exact records; typically:
+   - **CNAME** `emXXXX.taylor-marriott.com` → `uXXXX.wl.sendgrid.net` (mail subdomain)
+   - **CNAME** `s1._domainkey.taylor-marriott.com` → `s1.domainkey.uXXXX.wl.sendgrid.net` (DKIM)
+   - **CNAME** `s2._domainkey.taylor-marriott.com` → `s2.domainkey.uXXXX.wl.sendgrid.net` (DKIM)
+   - Optional **TXT** on `@` for SPF if SendGrid instructs (often `v=spf1 include:sendgrid.net ~all` merged with any existing SPF — only one SPF TXT per domain).
+3. **Env vars** — `SENDGRID_FROM_EMAIL=nathan@taylor-marriott.com`, `SENDGRID_FROM_NAME=Taylor-Marriott`, `SENDGRID_REPLY_TO=nathan@taylor-marriott.com`, `CHECKOUT_ALERT_EMAIL=nathan@taylor-marriott.com`.
+4. **Stripe webhook** — in the Stripe Dashboard (test and live endpoints), add events **`invoice.payment_failed`** and **`customer.subscription.updated`** to the existing subscription (do not change the endpoint URL). Existing: `checkout.session.completed`, `invoice.paid`, `customer.subscription.deleted`.
+
+### Checkout device previews
+
+Mockups load the client site via `GET /api/client-preview-site?place_id=…` when `?site=` / referrer / session storage are unavailable. Resolution order matches fulfilment: `client-sites.js` registry, `config/client-preview-sites.json`, then scan of team **`tmbulk-*`** / **`tm-preview-*`** sites. Unknown clients show no iframe (neutral device frames only).
 ```
 
 - **Smart Retries / dunning**: handled by Stripe; we do not charge Porkbun until `invoice.paid` for a cycle.

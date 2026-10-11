@@ -7,7 +7,12 @@ import clientPreviewSites from '../../config/client-preview-sites.json';
 import domainPricingConfig from '../../config/domain-pricing.json';
 import { domainRenewalUpfrontCopy } from '../../shared/domain-package.js';
 import { normalizeCheckoutPreviewSite } from '../../shared/checkout-preview-site.js';
-import { createCheckoutSession, fetchDomainSuggestions, searchDomains } from '../lib/checkoutApi';
+import {
+  createCheckoutSession,
+  fetchClientPreviewSite,
+  fetchDomainSuggestions,
+  searchDomains,
+} from '../lib/checkoutApi';
 import CheckoutDeviceScreen from '../components/CheckoutDeviceScreen';
 import { useShell } from '../layout/Shell';
 import { fadePageChromeIn, primeIncomingRoutePage, revealPageChromeInstant } from '../lib/pageTransition';
@@ -71,25 +76,46 @@ export default function Checkout() {
   const siteDisplay = useMemo(() => formatGbp(SITE_PENCE), []);
 
   useEffect(() => {
-    if (!placeId) return;
+    if (!placeId) return undefined;
+    const ac = new AbortController();
     const storageKey = `${SITE_URL_STORAGE_PREFIX}${placeId}`;
-    const fromQuery = normalizeCheckoutPreviewSite(searchParams.get('site'));
-    const fromReferrer = normalizeCheckoutPreviewSite(document.referrer);
-    let fromStorage = '';
-    try {
-      fromStorage = normalizeCheckoutPreviewSite(sessionStorage.getItem(storageKey));
-    } catch {
-      fromStorage = '';
-    }
-    const fallback = normalizeCheckoutPreviewSite(clientPreviewSites[placeId] || '');
-    const resolved = fromQuery || fromReferrer || fromStorage || fallback;
-    if (!resolved) return;
-    try {
-      sessionStorage.setItem(storageKey, resolved);
-    } catch {
-      /* ignore */
-    }
-    setSiteUrl(resolved);
+
+    (async () => {
+      const fromQuery = normalizeCheckoutPreviewSite(searchParams.get('site'));
+      const fromReferrer = normalizeCheckoutPreviewSite(document.referrer);
+      let fromStorage = '';
+      try {
+        fromStorage = normalizeCheckoutPreviewSite(sessionStorage.getItem(storageKey));
+      } catch {
+        fromStorage = '';
+      }
+      let resolved = fromQuery || fromReferrer || fromStorage;
+      if (!resolved) {
+        try {
+          const data = await fetchClientPreviewSite(placeId, ac.signal);
+          if (data?.url) resolved = normalizeCheckoutPreviewSite(data.url);
+        } catch (err) {
+          if (err.name !== 'AbortError') {
+            /* unknown client — no mockup URL */
+          }
+        }
+      }
+      if (!resolved) {
+        resolved = normalizeCheckoutPreviewSite(clientPreviewSites[placeId] || '');
+      }
+      if (!resolved) {
+        setSiteUrl('');
+        return;
+      }
+      try {
+        sessionStorage.setItem(storageKey, resolved);
+      } catch {
+        /* ignore */
+      }
+      setSiteUrl(resolved);
+    })();
+
+    return () => ac.abort();
   }, [placeId, searchParams]);
 
   useEffect(() => {

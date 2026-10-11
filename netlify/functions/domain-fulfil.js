@@ -1,6 +1,7 @@
 import { fulfilDomainOrder, switchesFromEnv } from './_shared/domain-fulfil.js';
 import { getOrder, putOrder } from './_shared/domainOrders.js';
 import { loadCheckoutConfigWithFx } from './_shared/checkout-config-async.js';
+import { sendDomainFulfilEmails } from './_shared/checkout-mail.js';
 
 /**
  * Background job. Only acts on orders the signed Stripe webhook stored with
@@ -41,6 +42,12 @@ export default async (request) => {
     history: [...(record.history || []), { at: new Date().toISOString(), status, switches }].slice(-20),
   });
   console.info('[domain-fulfil]', sessionId, record.order.domain, status, JSON.stringify(result.error || {}));
+
+  try {
+    await sendDomainFulfilEmails({ order: record.order, result, switches });
+  } catch (err) {
+    console.error('[domain-fulfil] emails', err.message);
+  }
 };
 
 export const config = {
