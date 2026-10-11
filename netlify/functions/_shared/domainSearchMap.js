@@ -1,4 +1,5 @@
-import { livePorkbunClientPricePence, formatGbp, tldOf } from './checkout-config.js';
+import { formatGbp, tldOf } from './checkout-config.js';
+import { fixedYearlyPenceForDomain, loadDomainPricingConfig } from './domain-pricing.js';
 
 export function porkbunRowToSearchResult(row, tldPricing, config) {
   const domain = row.domain;
@@ -25,7 +26,8 @@ export function porkbunRowToSearchResult(row, tldPricing, config) {
   let clientPricePence = null;
   let clientPriceDisplay = null;
   if (state === 'available') {
-    const priced = livePorkbunClientPricePence(quote, config);
+    const pricing = loadDomainPricingConfig();
+    const priced = fixedYearlyPenceForDomain(domain, pricing);
     if (priced.pence != null) {
       clientPricePence = priced.pence;
       clientPriceDisplay = formatGbp(priced.pence);

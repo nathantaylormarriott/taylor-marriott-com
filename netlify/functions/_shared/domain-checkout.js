@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import { normalizeDomain } from './porkbun-client.js';
-import { loadCheckoutConfig, DEFAULT_RENEWAL_LEAD_DAYS } from './checkout-config.js';
+import { loadCheckoutConfig, DEFAULT_RENEWAL_LEAD_DAYS, tldOf } from './checkout-config.js';
 
 const STRIPE_API = 'https://api.stripe.com/v1';
 export const SITE_PRODUCT_TYPE = 'site_checkout';
@@ -51,6 +51,8 @@ export function buildSiteCheckoutParams(input = {}, { allowIncomplete = false, c
     successUrl,
     cancelUrl,
     siteProductName,
+    netlifySiteId,
+    netlifySiteName,
   } = input || {};
 
   if (!placeId || typeof placeId !== 'string') throw validationError('placeId required');
@@ -98,9 +100,13 @@ export function buildSiteCheckoutParams(input = {}, { allowIncomplete = false, c
 
   const metadata = { product_type: SITE_PRODUCT_TYPE, place_id: placeId, domain: apex };
   const leadDays = Number.isInteger(cfg.renewalLeadDays) ? cfg.renewalLeadDays : DEFAULT_RENEWAL_LEAD_DAYS;
-  if (hasDomain) metadata.renewal_lead_days = String(leadDays);
-  // Lets the post-payment step refuse to buy if Porkbun's price has jumped above what the client paid.
-  if (hasDomain) metadata.domain_amount_pence = String(domainAmount);
+  if (hasDomain) {
+    metadata.renewal_lead_days = String(leadDays);
+    metadata.tld = tldOf(apex);
+    metadata.domain_amount_pence = String(domainAmount);
+    if (netlifySiteId) metadata.netlify_site_id = String(netlifySiteId);
+    if (netlifySiteName) metadata.netlify_site_name = String(netlifySiteName);
+  }
 
   const lineItems = [
     {

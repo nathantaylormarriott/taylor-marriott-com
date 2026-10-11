@@ -1,0 +1,12 @@
+{
+  "_todo": "Nathan: confirm retail yearly domain prices (GBP pence). Placeholders below — not live Stripe Price IDs.",
+  "currency": "gbp",
+  "yearlyPenceByTld": {
+    "co.uk": 1500,
+    "uk": 1500,
+    "com": 2000,
+    "net": 2000,
+    "org": 2000
+  },
+  "defaultYearlyPence": 2000
+}

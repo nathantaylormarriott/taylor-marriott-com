@@ -53,6 +53,9 @@ export function orderFromEvent(event) {
     domainAmountPence: Number.isInteger(Number(m.domain_amount_pence)) ? Number(m.domain_amount_pence) : null,
     customerEmail: (s.customer_details && s.customer_details.email) || s.customer_email || null,
     subscriptionId: s.subscription || null,
+    tld: m.tld || null,
+    netlifySiteId: m.netlify_site_id || null,
+    netlifySiteName: m.netlify_site_name || null,
     amountTotal: s.amount_total ?? null,
     currency: s.currency || null,
   };

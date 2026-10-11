@@ -312,7 +312,7 @@ export default function Checkout() {
           ) : null}
           {addDomain ? (
             <p className="checkout-fineprint">
-              The domain renews yearly at the same price. You can cancel any time.
+              The domain renews yearly at the same price until cancelled; if payment fails it lapses.
             </p>
           ) : null}
 

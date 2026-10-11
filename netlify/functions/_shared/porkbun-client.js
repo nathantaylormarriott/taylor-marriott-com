@@ -300,6 +300,68 @@ export async function setAutoRenewOff(domain) {
   return { domain: apex, autoRenew: false, status: data ? data.status ?? null : null };
 }
 
+export function buildRenewDomainRequest(domain, costCents, { years = 1, dryRun = false } = {}) {
+  const apex = normalizeDomain(domain);
+  return {
+    method: 'POST',
+    url: `${API}/domain/renew/${encodeURIComponent(apex)}`,
+    body: {
+      years,
+      cost: costCents,
+      agreeToTerms: 'yes',
+      ...(dryRun ? { dryRun: true } : {}),
+      apikey: '<PORKBUN_API_KEY>',
+      secretapikey: '<PORKBUN_SECRET_API_KEY>',
+    },
+  };
+}
+
+/**
+ * REAL renewal (1 year). Spends Porkbun credit. Requires confirmSpend === true.
+ * Idempotency-Key prevents double renew on webhook retry.
+ */
+export async function renewDomain({ domain, costCents, years = 1, idempotencyKey, confirmSpend } = {}) {
+  if (confirmSpend !== true) {
+    const err = new Error('renewDomain refused: confirmSpend !== true. No API call made.');
+    err.code = 'CONFIRM_SPEND_REQUIRED';
+    throw err;
+  }
+  if (!idempotencyKey) {
+    const err = new Error('renewDomain needs an idempotencyKey');
+    err.code = 'NO_IDEMPOTENCY_KEY';
+    throw err;
+  }
+  const apex = normalizeDomain(domain);
+  const pre = await porkbunPost(`/domain/renew/${encodeURIComponent(apex)}`, {
+    years,
+    cost: costCents,
+    agreeToTerms: 'yes',
+    dryRun: true,
+  });
+  if (!pre || pre.wouldSucceed !== true) {
+    const err = new Error((pre && pre.message) || `Porkbun preflight: renewal would not succeed for ${apex}`);
+    err.code = 'PREFLIGHT_FAILED';
+    err.preflight = {
+      wouldSucceed: pre ? pre.wouldSucceed ?? null : null,
+      sufficientFunds: pre ? pre.sufficientFunds ?? null : null,
+    };
+    throw err;
+  }
+  const data = await porkbunPost(
+    `/domain/renew/${encodeURIComponent(apex)}`,
+    { years, cost: costCents, agreeToTerms: 'yes' },
+    { headers: { 'Idempotency-Key': idempotencyKey } },
+  );
+  return {
+    domain: apex,
+    renewed: true,
+    years,
+    costCents,
+    orderId: data ? data.orderId ?? data.order_id ?? null : null,
+    status: data ? data.status ?? null : null,
+  };
+}
+
 export async function retrieveDnsRecords(domain) {
   const apex = normalizeDomain(domain);
   const data = await porkbunPost(`/dns/retrieve/${encodeURIComponent(apex)}`, {});

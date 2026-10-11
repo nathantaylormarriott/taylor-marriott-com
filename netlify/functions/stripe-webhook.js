@@ -1,29 +1,14 @@
 import { verifyStripeWebhook } from './_shared/domain-checkout.js';
 import { orderFromEvent } from './_shared/domain-fulfil.js';
+import { renewalFromInvoiceEvent, subscriptionDeletedFromEvent } from './_shared/domain-renew.js';
 import { getOrder, putOrder, FINAL_STATUSES } from './_shared/domainOrders.js';
+import { getRenewal, putRenewal, RENEWAL_DONE_STATUSES } from './_shared/domainRenewals.js';
+import { putSubscriptionRecord, markSubscriptionLapsing, getSubscriptionRecord } from './_shared/domainSubscriptions.js';
 
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
-/**
- * Stripe -> verify signature -> queue the domain order -> hand it to the
- * domain-fulfil background function (register at Porkbun, DNS, Netlify attach).
- * Answers Stripe fast; the slow work runs in the background function.
- */
-export default async (request) => {
-  if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 });
-
-  const signature = request.headers.get('stripe-signature') || '';
-  const rawBody = await request.text();
-
-  let event;
-  try {
-    event = verifyStripeWebhook(rawBody, signature);
-  } catch (err) {
-    console.error('[stripe-webhook]', err.code || '', err.message);
-    return json({ error: err.message }, err.code === 'BAD_STRIPE_SIGNATURE' ? 400 : 503);
-  }
-
+async function handleCheckoutCompleted(event, base) {
   let order;
   try {
     order = orderFromEvent(event);
@@ -49,12 +34,22 @@ export default async (request) => {
       registered: existing ? existing.registered === true : false,
       events: [...((existing && existing.events) || []), event.id].slice(-20),
     });
+    if (order.subscriptionId) {
+      const subExisting = (await getSubscriptionRecord(order.subscriptionId)) || {};
+      await putSubscriptionRecord(order.subscriptionId, {
+        ...subExisting,
+        sessionId: order.sessionId,
+        domain: order.domain,
+        placeId: order.placeId,
+        status: subExisting.status === 'lapsing' ? 'lapsing' : 'active',
+        events: [...(subExisting.events || []), event.id].slice(-20),
+      });
+    }
   } catch (err) {
     console.error('[stripe-webhook] store', err);
-    return json({ error: 'could not queue order' }, 500); // Stripe retries
+    return json({ error: 'could not queue order' }, 500);
   }
 
-  const base = process.env.URL || new URL(request.url).origin;
   try {
     const res = await fetch(`${base}/api/domain-fulfil`, {
       method: 'POST',
@@ -64,9 +59,111 @@ export default async (request) => {
     console.info('[stripe-webhook] queued', order.sessionId, order.domain, 'background', res.status);
   } catch (err) {
     console.error('[stripe-webhook] could not start background job', err.message);
-    return json({ error: 'could not start fulfilment' }, 500); // Stripe retries
+    return json({ error: 'could not start fulfilment' }, 500);
   }
   return json({ received: true, queued: order.sessionId });
+}
+
+async function handleRenewalInvoice(event, base) {
+  let job;
+  try {
+    job = renewalFromInvoiceEvent(event);
+  } catch (err) {
+    console.error('[stripe-webhook] bad renewal', event.id, err.message);
+    return json({ received: true, ignored: 'bad_renewal' });
+  }
+  if (!job) {
+    return json({ received: true, ignored: true });
+  }
+
+  try {
+    const existing = await getRenewal(job.invoiceId);
+    if (existing && RENEWAL_DONE_STATUSES.includes(existing.status)) {
+      console.info('[stripe-webhook] renewal duplicate', job.invoiceId, existing.status);
+      return json({ received: true, duplicate: existing.status });
+    }
+    await putRenewal(job.invoiceId, {
+      ...(existing || {}),
+      job,
+      status: 'queued',
+      events: [...((existing && existing.events) || []), event.id].slice(-20),
+    });
+  } catch (err) {
+    console.error('[stripe-webhook] renewal store', err);
+    return json({ error: 'could not queue renewal' }, 500);
+  }
+
+  try {
+    const res = await fetch(`${base}/api/domain-renew`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ invoiceId: job.invoiceId }),
+    });
+    console.info('[stripe-webhook] renewal queued', job.invoiceId, job.domain, res.status);
+  } catch (err) {
+    console.error('[stripe-webhook] could not start renewal job', err.message);
+    return json({ error: 'could not start renewal' }, 500);
+  }
+  return json({ received: true, renewalQueued: job.invoiceId });
+}
+
+async function handleSubscriptionDeleted(event) {
+  const info = subscriptionDeletedFromEvent(event);
+  if (!info) return json({ received: true, ignored: true });
+
+  try {
+    await markSubscriptionLapsing(info.subscriptionId, info.eventId);
+    if (info.subscriptionId) {
+      const sub = await getSubscriptionRecord(info.subscriptionId);
+      if (sub && sub.sessionId) {
+        const ord = await getOrder(sub.sessionId);
+        if (ord) {
+          await putOrder(sub.sessionId, {
+            ...ord,
+            subscriptionStatus: 'lapsing',
+            events: [...(ord.events || []), info.eventId].slice(-20),
+          });
+        }
+      }
+    }
+    console.warn('[stripe-webhook] subscription lapsing', info.subscriptionId, info.domain);
+  } catch (err) {
+    console.error('[stripe-webhook] lapsing mark failed', err);
+    return json({ error: 'could not mark lapsing' }, 500);
+  }
+  return json({ received: true, lapsing: info.subscriptionId });
+}
+
+/**
+ * Stripe webhooks: first purchase (checkout.session.completed), yearly renewals (invoice.paid),
+ * and subscription cancellation (customer.subscription.deleted).
+ */
+export default async (request) => {
+  if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 });
+
+  const signature = request.headers.get('stripe-signature') || '';
+  const rawBody = await request.text();
+
+  let event;
+  try {
+    event = verifyStripeWebhook(rawBody, signature);
+  } catch (err) {
+    console.error('[stripe-webhook]', err.code || '', err.message);
+    return json({ error: err.message }, err.code === 'BAD_STRIPE_SIGNATURE' ? 400 : 503);
+  }
+
+  const base = process.env.URL || new URL(request.url).origin;
+
+  switch (event.type) {
+    case 'checkout.session.completed':
+      return handleCheckoutCompleted(event, base);
+    case 'invoice.paid':
+      return handleRenewalInvoice(event, base);
+    case 'customer.subscription.deleted':
+      return handleSubscriptionDeleted(event);
+    default:
+      return json({ received: true, ignored: event.type });
+  }
 };
 
 export const config = {

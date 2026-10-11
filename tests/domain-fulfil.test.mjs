@@ -7,6 +7,10 @@ import { buildSiteCheckoutParams } from '../netlify/functions/_shared/domain-che
 import { conflictingDnsRecords, netlifyDnsRecords } from '../netlify/functions/_shared/porkbun-client.js';
 import { _linksToPlace } from '../netlify/functions/_shared/netlify-sites.js';
 import { setOrdersStoreForTests, memoryStore } from '../netlify/functions/_shared/domainOrders.js';
+import { renewalFromInvoiceEvent, fulfilDomainRenewal, subscriptionDeletedFromEvent } from '../netlify/functions/_shared/domain-renew.js';
+import { setRenewalsStoreForTests, memoryRenewalsStore } from '../netlify/functions/_shared/domainRenewals.js';
+import { setSubscriptionStoreForTests, memorySubscriptionStore } from '../netlify/functions/_shared/domainSubscriptions.js';
+import { fixedYearlyPenceForDomain, loadDomainPricingConfig, assertPorkbunWithinClientPrice } from '../netlify/functions/_shared/domain-pricing.js';
 
 const SITE = { siteId: 'site-1', siteName: 'tmbulk-acme', customDomain: null, domainAliases: [], source: 'registry' };
 
@@ -153,12 +157,142 @@ test('site scan matches only the exact place_id in a checkout link', () => {
   assert.equal(_linksToPlace('<a href="/x?place_id=cid-123">', 'cid-123'), false);
 });
 
-test('checkout session metadata carries domain_amount_pence', () => {
+test('checkout with domain: subscription mode, one-time site + yearly domain, rich metadata', () => {
   const p = buildSiteCheckoutParams(
-    { placeId: 'cid-1', domain: 'acme.co.uk', domainAmountPence: 448, successUrl: 'https://x/y', cancelUrl: 'https://x/z' },
+    {
+      placeId: 'cid-1',
+      domain: 'acme.co.uk',
+      domainAmountPence: 1500,
+      netlifySiteId: 'site-uuid',
+      netlifySiteName: 'tmbulk-acme',
+      successUrl: 'https://x/y',
+      cancelUrl: 'https://x/z',
+    },
     { config: { siteAmountPence: 29900, renewalLeadDays: 30 } },
   );
-  assert.equal(p.params.metadata.domain_amount_pence, '448');
+  assert.equal(p.params.mode, 'subscription');
+  assert.equal(p.params.line_items.length, 2);
+  assert.equal(p.params.line_items[0].price_data.unit_amount, 29900);
+  assert.equal(p.params.line_items[0].price_data.recurring, undefined);
+  assert.equal(p.params.line_items[1].price_data.recurring.interval, 'year');
+  assert.equal(p.params.metadata.domain_amount_pence, '1500');
+  assert.equal(p.params.metadata.tld, 'co.uk');
+  assert.equal(p.params.metadata.netlify_site_id, 'site-uuid');
+  assert.equal(p.params.subscription_data.metadata.place_id, 'cid-1');
+});
+
+test('checkout without domain stays one-off payment mode', () => {
+  const p = buildSiteCheckoutParams(
+    { placeId: 'cid-1', successUrl: 'https://x/y', cancelUrl: 'https://x/z' },
+    { config: { siteAmountPence: 29900 } },
+  );
+  assert.equal(p.params.mode, 'payment');
+  assert.equal(p.params.line_items.length, 1);
+});
+
+test('fixed TLD retail prices and Porkbun cost guard', () => {
+  const pricing = loadDomainPricingConfig();
+  assert.equal(fixedYearlyPenceForDomain('x.co.uk', pricing).pence, 1500);
+  assert.equal(fixedYearlyPenceForDomain('x.com', pricing).pence, 2000);
+  assert.doesNotThrow(() =>
+    assertPorkbunWithinClientPrice({ price: '5.66', renewalPrice: '5.66' }, 1500, 0.79),
+  );
+  assert.throws(
+    () => assertPorkbunWithinClientPrice({ price: '25.00', renewalPrice: '25.00' }, 1500, 0.79),
+    (e) => e.code === 'COST_ABOVE_CLIENT_PRICE',
+  );
+});
+
+function renewalInvoiceEvent({ livemode = true, invoiceId = 'in_live_renew1', billing = 'subscription_cycle' } = {}) {
+  return {
+    id: 'evt_renew_1',
+    type: 'invoice.paid',
+    livemode,
+    data: {
+      object: {
+        object: 'invoice',
+        id: invoiceId,
+        livemode,
+        status: 'paid',
+        paid: true,
+        billing_reason: billing,
+        subscription: 'sub_live_abc',
+        subscription_details: {
+          metadata: {
+            product_type: 'site_checkout',
+            place_id: 'cid-1',
+            domain: 'acmebuilders.co.uk',
+            domain_amount_pence: '1500',
+            tld: 'co.uk',
+          },
+        },
+      },
+    },
+  };
+}
+
+test('renewalFromInvoiceEvent ignores first invoice and non-domain invoices', () => {
+  assert.equal(renewalFromInvoiceEvent(renewalInvoiceEvent({ billing: 'subscription_create' })), null);
+  assert.equal(renewalFromInvoiceEvent(renewalInvoiceEvent({ billing: 'manual' })), null);
+  const j = renewalFromInvoiceEvent(renewalInvoiceEvent());
+  assert.equal(j.domain, 'acmebuilders.co.uk');
+  assert.equal(j.domainAmountPence, 1500);
+});
+
+test('renewal on invoice.paid cycle: dry-run then live Porkbun renew', async () => {
+  const calls = [];
+  const porkbun = {
+    checkDomain: async (d) => ({ domain: d, available: false, premium: false, price: '5.66', renewalPrice: '5.66' }),
+    priceToCents: (p) => Math.round(Number(p) * 100),
+    PORKBUN_API_ORDER_CAP_CENTS: 10000,
+    buildRenewDomainRequest: (d, c, o) => ({ domain: d, cost: c, dryRun: o && o.dryRun }),
+    renewDomain: async (o) => {
+      calls.push(['renew', o]);
+      return { renewed: true };
+    },
+  };
+  const job = renewalFromInvoiceEvent(renewalInvoiceEvent());
+  const dry = await fulfilDomainRenewal(job, { usdToGbp: 0.79, deps: { porkbun } });
+  assert.equal(dry.status, 'dry_run');
+  assert.equal(calls.length, 0);
+  const live = await fulfilDomainRenewal(job, { purchaseLive: true, usdToGbp: 0.79, deps: { porkbun } });
+  assert.equal(live.status, 'renewed');
+  assert.equal(calls[0][1].idempotencyKey, 'tm-domain-renew-in_live_renew1');
+});
+
+test('renewal refuses premium and price above client guard', async () => {
+  const porkbun = {
+    checkDomain: async () => ({ available: false, premium: true, price: '5.66', renewalPrice: '5.66' }),
+    priceToCents: (p) => Math.round(Number(p) * 100),
+    PORKBUN_API_ORDER_CAP_CENTS: 10000,
+    buildRenewDomainRequest: () => ({}),
+  };
+  const job = renewalFromInvoiceEvent(renewalInvoiceEvent());
+  const r = await fulfilDomainRenewal(job, { purchaseLive: true, usdToGbp: 0.79, deps: { porkbun } });
+  assert.equal(r.status, 'error');
+  assert.equal(r.error.code, 'PREMIUM_REFUSED');
+});
+
+test('renewal skipped when subscription is lapsing', async () => {
+  const job = renewalFromInvoiceEvent(renewalInvoiceEvent());
+  const r = await fulfilDomainRenewal(job, { subscriptionLapsing: true, deps: { porkbun: {} } });
+  assert.equal(r.status, 'skipped_lapsing');
+});
+
+test('customer.subscription.deleted parsed for lapsing', () => {
+  const info = subscriptionDeletedFromEvent({
+    type: 'customer.subscription.deleted',
+    id: 'evt_sub_del',
+    data: {
+      object: {
+        object: 'subscription',
+        id: 'sub_live_abc',
+        metadata: { product_type: 'site_checkout', domain: 'acme.co.uk', place_id: 'cid-1' },
+      },
+    },
+  });
+  assert.equal(info.subscriptionId, 'sub_live_abc');
+  assert.equal(info.domain, 'acme.co.uk');
 });
 
 test('webhook handler: bad signature 400, good one queues once and starts the background job', async () => {
@@ -185,6 +319,68 @@ test('webhook handler: bad signature 400, good one queues once and starts the ba
     const dup = await webhook(new Request('https://example.test/api/stripe-webhook', { method: 'POST', body, headers: { 'stripe-signature': `t=${t},v1=${sig}` } }));
     assert.equal((await dup.json()).duplicate, 'connected');
     assert.equal(triggered.length, 1);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test('webhook: invoice.paid renewal queued once; subscription.deleted marks lapsing', async () => {
+  const renewStore = memoryRenewalsStore();
+  const subStore = memorySubscriptionStore();
+  setRenewalsStoreForTests(renewStore);
+  setSubscriptionStoreForTests(subStore);
+  process.env.STRIPE_WEBHOOK_SECRET = 'whsec_unit_test_only';
+  process.env.URL = 'https://example.test';
+  const { default: webhook } = await import('../netlify/functions/stripe-webhook.js');
+  const triggered = [];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init) => (triggered.push([url, JSON.parse(init.body)]), new Response('', { status: 202 }));
+  try {
+    const invBody = JSON.stringify(renewalInvoiceEvent());
+    const t = Math.floor(Date.now() / 1000);
+    const sig = crypto.createHmac('sha256', process.env.STRIPE_WEBHOOK_SECRET).update(`${t}.${invBody}`).digest('hex');
+    const ok = await webhook(
+      new Request('https://example.test/api/stripe-webhook', {
+        method: 'POST',
+        body: invBody,
+        headers: { 'stripe-signature': `t=${t},v1=${sig}` },
+      }),
+    );
+    assert.equal(ok.status, 200);
+    assert.deepEqual(triggered[0], ['https://example.test/api/domain-renew', { invoiceId: 'in_live_renew1' }]);
+    await renewStore.setJSON('in_live_renew1', { ...(await renewStore.get('in_live_renew1')), status: 'renewed' });
+    const dup = await webhook(
+      new Request('https://example.test/api/stripe-webhook', {
+        method: 'POST',
+        body: invBody,
+        headers: { 'stripe-signature': `t=${t},v1=${sig}` },
+      }),
+    );
+    assert.equal((await dup.json()).duplicate, 'renewed');
+    assert.equal(triggered.length, 1);
+
+    const subBody = JSON.stringify({
+      id: 'evt_sub_del',
+      type: 'customer.subscription.deleted',
+      data: {
+        object: {
+          object: 'subscription',
+          id: 'sub_live_abc',
+          metadata: { product_type: 'site_checkout', domain: 'acmebuilders.co.uk', place_id: 'cid-1' },
+        },
+      },
+    });
+    const t2 = t + 1;
+    const sig2 = crypto.createHmac('sha256', process.env.STRIPE_WEBHOOK_SECRET).update(`${t2}.${subBody}`).digest('hex');
+    const laps = await webhook(
+      new Request('https://example.test/api/stripe-webhook', {
+        method: 'POST',
+        body: subBody,
+        headers: { 'stripe-signature': `t=${t2},v1=${sig2}` },
+      }),
+    );
+    assert.equal((await laps.json()).lapsing, 'sub_live_abc');
+    assert.equal((await subStore.get('sub_live_abc')).status, 'lapsing');
   } finally {
     globalThis.fetch = realFetch;
   }

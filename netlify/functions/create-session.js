@@ -1,8 +1,7 @@
 import { handleOptions, jsonResponse } from './_shared/http.js';
-import {
-  loadCheckoutConfig,
-  livePorkbunClientPricePence,
-} from './_shared/checkout-config.js';
+import { loadCheckoutConfig } from './_shared/checkout-config.js';
+import { fixedYearlyPenceForDomain, loadDomainPricingConfig, assertPorkbunWithinClientPrice } from './_shared/domain-pricing.js';
+import { CLIENT_SITES } from './_shared/client-sites.js';
 import { checkDomain, getTldPricing, normalizeDomain } from './_shared/porkbun-client.js';
 import {
   checkToAvailabilityState,
@@ -85,13 +84,18 @@ export default async (request) => {
       }
 
       const quote = quoteFromCheckAndTld(check, tldPricing);
-      const priced = livePorkbunClientPricePence(quote, config);
+      const domainPricing = loadDomainPricingConfig();
+      const priced = fixedYearlyPenceForDomain(domain, domainPricing);
       if (priced.pence == null) {
-        return jsonResponse(
-          request,
-          { error: priced.reason || 'no_registrar_price', domain },
-          409,
-        );
+        return jsonResponse(request, { error: 'domain_price_not_configured', domain, tld: priced.tld }, 409);
+      }
+      try {
+        assertPorkbunWithinClientPrice(quote, priced.pence, config.usdToGbp);
+      } catch (guardErr) {
+        if (guardErr.code === 'COST_ABOVE_CLIENT_PRICE') {
+          return jsonResponse(request, { error: 'domain_cost_above_retail', domain }, 409);
+        }
+        throw guardErr;
       }
       domainAmountPence = priced.pence;
     } catch (err) {
@@ -108,6 +112,7 @@ export default async (request) => {
 
   try {
     const idempotencyKey = siteCheckoutIdempotencyKey(placeId, domain);
+    const siteHit = CLIENT_SITES[placeId];
     const result = await createSiteCheckoutSession(
       {
         placeId,
@@ -116,6 +121,8 @@ export default async (request) => {
         customerEmail: emailRaw || undefined,
         successUrl,
         cancelUrl,
+        netlifySiteId: siteHit && siteHit.siteId,
+        netlifySiteName: siteHit && siteHit.siteName,
       },
       { idempotencyKey, config },
     );
