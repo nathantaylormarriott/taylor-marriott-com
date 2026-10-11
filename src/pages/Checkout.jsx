@@ -3,15 +3,19 @@ import { Link, useSearchParams } from 'react-router-dom';
 import GlassButton from '../components/GlassButton';
 import GlassField from '../components/GlassField';
 import checkoutConfig from '../../config/checkout.json';
+import clientPreviewSites from '../../config/client-preview-sites.json';
 import domainPricingConfig from '../../config/domain-pricing.json';
 import { domainRenewalUpfrontCopy } from '../../shared/domain-package.js';
+import { normalizeCheckoutPreviewSite } from '../../shared/checkout-preview-site.js';
 import { createCheckoutSession, fetchDomainSuggestions, searchDomains } from '../lib/checkoutApi';
+import CheckoutDeviceScreen from '../components/CheckoutDeviceScreen';
 import { useShell } from '../layout/Shell';
 import { fadePageChromeIn, primeIncomingRoutePage, revealPageChromeInstant } from '../lib/pageTransition';
 import { parseSearchInput } from '../../shared/domain-search-input.js';
 
 const SITE_PENCE = checkoutConfig.siteAmountPence;
 const STORAGE_KEY = 'tm-checkout-selection-v1';
+const SITE_URL_STORAGE_PREFIX = 'tm-checkout-site:';
 
 function formatGbp(pence) {
   return `£${(pence / 100).toFixed(2)}`;
@@ -62,8 +66,31 @@ export default function Checkout() {
   const [suggestions, setSuggestions] = useState([]);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [suggestionsError, setSuggestionsError] = useState('');
+  const [siteUrl, setSiteUrl] = useState('');
 
   const siteDisplay = useMemo(() => formatGbp(SITE_PENCE), []);
+
+  useEffect(() => {
+    if (!placeId) return;
+    const storageKey = `${SITE_URL_STORAGE_PREFIX}${placeId}`;
+    const fromQuery = normalizeCheckoutPreviewSite(searchParams.get('site'));
+    const fromReferrer = normalizeCheckoutPreviewSite(document.referrer);
+    let fromStorage = '';
+    try {
+      fromStorage = normalizeCheckoutPreviewSite(sessionStorage.getItem(storageKey));
+    } catch {
+      fromStorage = '';
+    }
+    const fallback = normalizeCheckoutPreviewSite(clientPreviewSites[placeId] || '');
+    const resolved = fromQuery || fromReferrer || fromStorage || fallback;
+    if (!resolved) return;
+    try {
+      sessionStorage.setItem(storageKey, resolved);
+    } catch {
+      /* ignore */
+    }
+    setSiteUrl(resolved);
+  }, [placeId, searchParams]);
 
   useEffect(() => {
     if (!placeId) return;
@@ -249,14 +276,27 @@ export default function Checkout() {
           ) : null}
         </header>
 
-        <section className="checkout-card" aria-labelledby="checkout-fee">
-          <h2 id="checkout-fee" className="checkout-section-title">
-            Your website
-          </h2>
-          <p className="checkout-line">
-            <span>Website fee</span>
-            <strong>{siteDisplay} one-time</strong>
-          </p>
+        <section className="checkout-card" aria-label="Website preview">
+          <div className="checkout-previews">
+            <div className="checkout-device checkout-device--mac">
+              <CheckoutDeviceScreen
+                siteUrl={siteUrl}
+                frameWidth={1440}
+                frameHeight={935}
+                label="Website preview on a computer"
+              />
+              <img className="checkout-device__frame" src="/checkout/macbook-preview.webp" alt="" />
+            </div>
+            <div className="checkout-device checkout-device--phone">
+              <CheckoutDeviceScreen
+                siteUrl={siteUrl}
+                frameWidth={390}
+                frameHeight={846}
+                label="Website preview on a phone"
+              />
+              <img className="checkout-device__frame" src="/checkout/iphone-preview.webp" alt="" />
+            </div>
+          </div>
         </section>
 
         <section className="checkout-card" aria-labelledby="checkout-domain-toggle">
@@ -339,7 +379,8 @@ export default function Checkout() {
                     setSelectedDomain(null);
                     setSelectedPricePence(null);
                   }}
-                  sceneBlur
+                  liquid={false}
+                  sceneBlur={false}
                 />
                 {searching ? <p className="checkout-hint">Checking availability…</p> : null}
                 {searchError ? (
@@ -479,7 +520,8 @@ export default function Checkout() {
               autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              sceneBlur
+              liquid={false}
+              sceneBlur={false}
             />
           </div>
 
