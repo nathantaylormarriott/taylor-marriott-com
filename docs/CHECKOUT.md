@@ -8,7 +8,7 @@ Client-facing checkout for the £299 website fee and an optional yearly domain a
 |------|---------|
 | `/checkout?place_id=…` | Domain search, cart, pay |
 | `/checkout/done?session_id=…` | Stripe success return |
-| `GET /api/domain-search` | Porkbun availability + fixed retail GBP yearly price |
+| `GET /api/domain-search` | Normalises pasted URLs; label → `.co.uk`/`.com`/`.uk`; fixed retail price; up to 3 alternatives if taken |
 | `GET /api/domain-suggestions` | Auto-suggested domains from business/trade/town (Porkbun check, cached ~5 min) |
 | `POST /api/create-session` | Stripe Checkout Session (server recomputes amounts) |
 | `POST /api/stripe-webhook` | Signature verify, queue orders/renewals, start background jobs |

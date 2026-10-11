@@ -285,7 +285,8 @@ export default function Checkout() {
                 {!suggestionsLoading && suggestions.length ? (
                   <div className="checkout-suggestions__chips" role="list">
                     {suggestions.map((row) => {
-                      const selected = selectedDomain === row.domain;
+                      const selected =
+                        selectedDomain === row.domain || searchLabel.trim().toLowerCase() === row.domain;
                       return (
                         <button
                           key={row.domain}
