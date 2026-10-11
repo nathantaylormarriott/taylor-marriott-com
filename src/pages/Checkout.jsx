@@ -379,7 +379,8 @@ export default function Checkout() {
                     setSelectedDomain(null);
                     setSelectedPricePence(null);
                   }}
-                  sceneBlur
+                  liquid={false}
+                  sceneBlur={false}
                 />
                 {searching ? <p className="checkout-hint">Checking availability…</p> : null}
                 {searchError ? (
@@ -519,7 +520,8 @@ export default function Checkout() {
               autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              sceneBlur
+              liquid={false}
+              sceneBlur={false}
             />
           </div>
 
