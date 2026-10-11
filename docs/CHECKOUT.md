@@ -43,9 +43,11 @@ Suggested checkout copy: *“The domain renews yearly at £X until cancelled; if
 | Cart | Stripe `mode` | Billing |
 |------|---------------|---------|
 | Website only | `payment` | One-off £299 |
-| Website + domain | `subscription` | One-off £299 website line item + **yearly** domain line item on the same subscription |
+| Website + domain | `subscription` | **Pay today: £299 only** (website + domain year 1). Yearly domain line is on the subscription with **`trial_period_days: 365`** so the first domain charge is at the 1-year anniversary. Card saved. |
 
-First payment covers site + year 1 domain; Stripe saves the card and bills the domain yearly on the anniversary. Subscription metadata includes `place_id`, `domain`, `tld`, `domain_amount_pence`, and Netlify site hints when known (`client-sites.js` registry).
+Only domains whose **fixed yearly retail** is **≤ `DOMAIN_INCLUDED_MAX_GBP`** (default **£20**, config + env) are offered. Others show *Not available in this package* in search/suggestions.
+
+Subscription metadata includes `domain_first_year_included=1`, `place_id`, `domain`, `tld`, `domain_amount_pence`, and Netlify site hints when known (`client-sites.js` registry). Stripe Checkout **custom submit text** states the renewal price and date.
 
 ## Stripe metadata
 
