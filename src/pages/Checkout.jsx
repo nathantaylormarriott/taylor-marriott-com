@@ -6,20 +6,13 @@ import checkoutConfig from '../../config/checkout.json';
 import { createCheckoutSession, fetchDomainSuggestions, searchDomains } from '../lib/checkoutApi';
 import { useShell } from '../layout/Shell';
 import { fadePageChromeIn, primeIncomingRoutePage, revealPageChromeInstant } from '../lib/pageTransition';
+import { parseSearchInput } from '../../shared/domain-search-input.js';
 
 const SITE_PENCE = checkoutConfig.siteAmountPence;
 const STORAGE_KEY = 'tm-checkout-selection-v1';
 
 function formatGbp(pence) {
   return `£${(pence / 100).toFixed(2)}`;
-}
-
-function sanitizeLabel(raw) {
-  let s = String(raw || '').trim().toLowerCase();
-  s = s.replace(/&/g, 'and');
-  s = s.replace(/[^a-z0-9-]+/g, '');
-  s = s.replace(/-+/g, '-').replace(/^-+|-+$/g, '');
-  return s.slice(0, 63);
 }
 
 function loadStoredSelection(placeId) {
@@ -58,6 +51,7 @@ export default function Checkout() {
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState('');
+  const [alternatives, setAlternatives] = useState([]);
   const [selectedDomain, setSelectedDomain] = useState(null);
   const [selectedPricePence, setSelectedPricePence] = useState(null);
   const [email, setEmail] = useState('');
@@ -111,16 +105,25 @@ export default function Checkout() {
   }, [finishRouteTransition, hubRouteHandoffRef, reduced]);
 
   const runSearch = useCallback(
-    async (label) => {
-      const q = sanitizeLabel(label);
+    async (raw) => {
+      const q = String(raw || '').trim();
       if (!q || !placeId) return;
+      const parsed = parseSearchInput(q);
+      if (!parsed.ok) {
+        setResults([]);
+        setAlternatives([]);
+        setSearchError(parsed.message || 'Enter a valid domain name.');
+        return;
+      }
       setSearching(true);
       setSearchError('');
       try {
         const data = await searchDomains({ placeId, q });
         setResults(data.results || []);
+        setAlternatives(data.alternatives || []);
       } catch (err) {
         setResults([]);
+        setAlternatives([]);
         setSearchError(err.message || 'Could not search domains');
       } finally {
         setSearching(false);
@@ -153,9 +156,11 @@ export default function Checkout() {
 
   useEffect(() => {
     if (!addDomain || !placeId) return undefined;
-    const q = sanitizeLabel(searchLabel);
+    const q = String(searchLabel || '').trim();
     if (!q) {
       setResults([]);
+      setAlternatives([]);
+      setSearchError('');
       return undefined;
     }
     const t = window.setTimeout(() => runSearch(q), 400);
@@ -166,6 +171,13 @@ export default function Checkout() {
     if (row.state !== 'available' || row.clientPricePence == null) return;
     setSelectedDomain(row.domain);
     setSelectedPricePence(row.clientPricePence);
+    setPayError('');
+  };
+
+  const onSuggestionChip = (row) => {
+    setSearchLabel(row.domain);
+    setSelectedDomain(null);
+    setSelectedPricePence(null);
     setPayError('');
   };
 
@@ -286,7 +298,7 @@ export default function Checkout() {
                             .filter(Boolean)
                             .join(' ')}
                           aria-pressed={selected}
-                          onClick={() => onSelectDomain(row)}
+                          onClick={() => onSuggestionChip(row)}
                         >
                           <span className="checkout-suggest-chip__domain">{row.domain}</span>
                           <span className="checkout-suggest-chip__price">
@@ -308,11 +320,11 @@ export default function Checkout() {
               <div className="checkout-search">
                 <GlassField
                   id="checkout-domain-search"
-                  label="Search name (letters, numbers, hyphens)"
+                  label="Domain name (or paste a full address — we check .co.uk, .com and .uk)"
                   name="domain_search"
                   value={searchLabel}
                   onChange={(e) => {
-                    setSearchLabel(sanitizeLabel(e.target.value));
+                    setSearchLabel(e.target.value);
                     setSelectedDomain(null);
                     setSelectedPricePence(null);
                   }}
@@ -325,6 +337,40 @@ export default function Checkout() {
                   </p>
                 ) : null}
               </div>
+
+              {alternatives.length ? (
+                <div className="checkout-alternatives" aria-labelledby="checkout-alternatives-title">
+                  <h3 id="checkout-alternatives-title" className="checkout-suggestions__title">
+                    Similar names available
+                  </h3>
+                  <ul className="checkout-results">
+                    {alternatives.map((row) => {
+                      const isSelected = selectedDomain === row.domain;
+                      return (
+                        <li
+                          key={`alt-${row.domain}`}
+                          className={['checkout-result', isSelected ? 'checkout-result--selected' : '']
+                            .filter(Boolean)
+                            .join(' ')}
+                        >
+                          <div className="checkout-result__main">
+                            <span className="checkout-result__domain">{row.domain}</span>
+                            <span className="checkout-result__status">{row.clientPriceDisplay}/yr</span>
+                          </div>
+                          <GlassButton
+                            type="button"
+                            className="checkout-select-btn"
+                            onClick={() => onSelectDomain(row)}
+                            aria-pressed={isSelected}
+                          >
+                            {isSelected ? 'Selected' : 'Select'}
+                          </GlassButton>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              ) : null}
 
               <ul className="checkout-results" aria-live="polite">
                 {results.map((row) => {
@@ -356,7 +402,7 @@ export default function Checkout() {
                         <GlassButton
                           type="button"
                           className="checkout-select-btn"
-                          onClick={() => onSelectDomain(row)}
+                          onClick={() => onSuggestionChip(row)}
                           aria-pressed={isSelected}
                         >
                           {isSelected ? 'Selected' : 'Select'}

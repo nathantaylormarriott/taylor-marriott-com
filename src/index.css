@@ -3404,6 +3404,9 @@ html.pipeline-route .nav-progressive-blur {
     opacity: 0.65;
   }
 }
+.checkout-alternatives {
+  margin-top: 0.75rem;
+}
 .checkout-search {
   margin-top: 1rem;
 }
