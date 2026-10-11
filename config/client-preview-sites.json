@@ -1,0 +1,7 @@
+{
+  "_notes": [
+    "Default preview site URL per place_id when ?site= / referrer / session are unavailable.",
+    "Keep in sync with netlify/functions/_shared/client-sites.js (siteName → https://{siteName}.netlify.app/)."
+  ],
+  "cid-5705786826933327223": "https://tmbulk-s-and-r-construction-atherstone.netlify.app/"
+}
