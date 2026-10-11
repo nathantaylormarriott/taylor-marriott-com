@@ -194,19 +194,18 @@ export default function Shell() {
   useEffect(() => {
     const theme = isForMuslimsRoute
       ? SCENE_THEMES.muslims.nebula
-      : isContactRoute || isDiscoveryRoute || isWebsiteOfferRoute
+      : isContactRoute || isDiscoveryRoute || isWebsiteOfferRoute || isCheckoutRoute
         ? SCENE_THEMES.contact.nebula
         : SCENE_THEMES.home.nebula;
     sceneApiRef.current?.setNebula?.(theme);
-  }, [isContactRoute, isDiscoveryRoute, isForMuslimsRoute, isWebsiteOfferRoute]);
+  }, [isContactRoute, isDiscoveryRoute, isForMuslimsRoute, isWebsiteOfferRoute, isCheckoutRoute]);
 
   useEffect(() => {
     const lockHomeScroll = isMobile && !HOME_BELOW_HERO;
     const lockViewport = isContactRoute || isDiscoveryRoute || isForMuslimsRoute;
     document.documentElement.classList.toggle('contact-route', lockViewport);
-    document.documentElement.classList.toggle('offer-scroll', isWebsiteOfferRoute);
+    document.documentElement.classList.toggle('offer-scroll', isWebsiteOfferRoute || isCheckoutRoute);
     document.documentElement.classList.toggle('pipeline-route', isPipelineRoute);
-    document.documentElement.classList.toggle('checkout-route', isCheckoutRoute);
     document.documentElement.classList.toggle(
       'site-scroll-lock',
       lockHomeScroll && !lockViewport && !isWebsiteOfferRoute && !isPipelineRoute && !isCheckoutRoute,
@@ -217,7 +216,6 @@ export default function Shell() {
         'site-scroll-lock',
         'offer-scroll',
         'pipeline-route',
-        'checkout-route',
       );
     };
   }, [

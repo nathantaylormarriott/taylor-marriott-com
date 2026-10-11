@@ -3216,30 +3216,7 @@ html.pipeline-route .nav-progressive-blur {
   }
 }
 
-/* ---------- Checkout (/checkout) — light checkout-route theme + device preview ---------- */
-html.checkout-route,
-html.checkout-route body {
-  background: #f6f4ef;
-  color: #121218;
-}
-html.checkout-route #webgl,
-html.checkout-route .nav-progressive-blur {
-  display: none !important;
-}
-html.checkout-route .logo img {
-  mix-blend-mode: normal;
-  filter: brightness(0);
-}
-html.checkout-route .head-contact {
-  color: #121218;
-}
-html.checkout-route .head-contact:hover {
-  color: #3a3a42;
-}
-html.checkout-route ::selection {
-  background: #12121824;
-  color: #121218;
-}
+/* ---------- Checkout (/checkout) ---------- */
 .visually-hidden {
   position: absolute;
   width: 1px;
@@ -3272,36 +3249,36 @@ html.checkout-route ::selection {
   font-size: clamp(2rem, 4.5vw, 2.75rem);
   letter-spacing: -0.03em;
   line-height: 1.1;
-  color: #121218;
+  color: var(--star);
   margin: 0 0 0.75rem;
 }
 .checkout-lead {
   font-size: clamp(1rem, 1.25vw, 1.08rem);
   line-height: 1.65;
-  color: #121218b8;
+  color: var(--star-dim);
   margin: 0;
 }
 .checkout-banner {
   margin: 1rem 0 0;
   padding: 0.75rem 1rem;
   border-radius: 0.65rem;
-  background: #fff;
-  box-shadow: inset 0 0 0 1px #1212181a;
-  color: #121218;
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  color: var(--star);
   font-size: 0.95rem;
 }
 .checkout-card {
   padding: clamp(1.1rem, 2.5vw, 1.45rem);
   border-radius: 1rem;
-  background: #fff;
-  box-shadow: inset 0 0 0 1px #12121814;
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 .checkout-section-title {
   font-family: var(--font-sans);
   font-weight: 400;
   font-size: 1.05rem;
   letter-spacing: -0.02em;
-  color: #121218;
+  color: var(--star);
   margin: 0 0 0.85rem;
 }
 .checkout-previews {
@@ -3375,6 +3352,7 @@ html.checkout-route ::selection {
   height: 91.42%;
   border-radius: 8% / 4%;
 }
+
 .checkout-line {
   display: flex;
   justify-content: space-between;
@@ -3382,10 +3360,10 @@ html.checkout-route ::selection {
   align-items: baseline;
   margin: 0;
   font-size: 0.98rem;
-  color: #121218b8;
+  color: var(--star-dim);
 }
 .checkout-line strong {
-  color: #121218;
+  color: var(--star);
   font-weight: 500;
 }
 .checkout-toggle-row {
@@ -3413,8 +3391,8 @@ html.checkout-route ::selection {
   width: 2.75rem;
   height: 1.5rem;
   border-radius: 999px;
-  background: #1212181f;
-  box-shadow: inset 0 0 0 1px #12121829;
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
   transition: background 0.2s ease;
 }
 .checkout-switch__ui::after {
@@ -3424,11 +3402,11 @@ html.checkout-route ::selection {
   height: 1.15rem;
   margin: 0.175rem;
   border-radius: 50%;
-  background: #fff;
+  background: #f4f1ea;
   transition: transform 0.2s ease;
 }
 .checkout-switch input:checked + .checkout-switch__ui {
-  background: #121218;
+  background: rgba(255, 255, 255, 0.28);
 }
 .checkout-switch input:checked + .checkout-switch__ui::after {
   transform: translateX(1.25rem);
@@ -3441,7 +3419,7 @@ html.checkout-route ::selection {
   font-weight: 600;
   letter-spacing: 0.02em;
   margin: 0 0 0.65rem;
-  color: #121218b8;
+  opacity: 0.85;
 }
 .checkout-suggestions__chips,
 .checkout-suggestions__skeleton {
@@ -3456,8 +3434,8 @@ html.checkout-route ::selection {
   gap: 0.15rem;
   padding: 0.55rem 0.75rem;
   border-radius: 999px;
-  border: 1px solid #12121824;
-  background: #f6f4ef;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.06);
   color: inherit;
   font: inherit;
   cursor: pointer;
@@ -3466,12 +3444,12 @@ html.checkout-route ::selection {
   transition: border-color 0.15s ease, background 0.15s ease;
 }
 .checkout-suggest-chip:hover {
-  border-color: #12121845;
-  background: #fff;
+  border-color: rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.1);
 }
 .checkout-suggest-chip--selected {
-  border-color: #121218;
-  background: #fff;
+  border-color: rgba(120, 200, 255, 0.75);
+  background: rgba(80, 160, 255, 0.15);
 }
 .checkout-suggest-chip__domain {
   font-size: 0.82rem;
@@ -3486,7 +3464,6 @@ html.checkout-route ::selection {
   min-width: 7.5rem;
   min-height: 2.6rem;
   border-radius: 999px;
-  background: #12121814;
   animation: checkout-suggest-pulse 1.2s ease-in-out infinite;
   pointer-events: none;
 }
@@ -3508,11 +3485,11 @@ html.checkout-route ::selection {
 .checkout-hint {
   margin: 0.5rem 0 0;
   font-size: 0.85rem;
-  color: #1212189e;
+  color: var(--star-dim);
 }
 .checkout-error {
   margin: 0.65rem 0 0;
-  color: #9b1c1c;
+  color: #ffb4b4;
   font-size: 0.92rem;
 }
 .checkout-results {
@@ -3530,8 +3507,8 @@ html.checkout-route ::selection {
   gap: 0.75rem;
   padding: 0.65rem 0.75rem;
   border-radius: 0.65rem;
-  background: #fff;
-  box-shadow: inset 0 0 0 1px #1212181a;
+  background: rgba(6, 6, 10, 0.35);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 .checkout-result--muted {
   opacity: 0.55;
@@ -3540,8 +3517,8 @@ html.checkout-route ::selection {
   text-decoration: line-through;
 }
 .checkout-result--selected {
-  box-shadow: inset 0 0 0 1px #121218;
-  background: #f6f4ef;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.06);
 }
 .checkout-result__main {
   min-width: 0;
@@ -3553,12 +3530,12 @@ html.checkout-route ::selection {
   font-family: var(--font-mono);
   font-size: 0.78rem;
   letter-spacing: 0.04em;
-  color: #121218;
+  color: var(--star);
   word-break: break-all;
 }
 .checkout-result__status {
   font-size: 0.85rem;
-  color: #1212189e;
+  color: var(--star-dim);
 }
 .checkout-select-btn.glass-surface--pill {
   flex-shrink: 0;
@@ -3566,18 +3543,12 @@ html.checkout-route ::selection {
   font-size: 0.62rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  background: #fff;
-  color: #121218;
-  box-shadow: inset 0 0 0 1px #1212182e;
-}
-.checkout-select-btn.glass-surface--pill .glass-surface__content {
-  color: #121218;
 }
 .checkout-renewal-upfront {
   margin: 0.75rem 0 0;
   font-size: 0.88rem;
   line-height: 1.45;
-  color: #121218b8;
+  opacity: 0.92;
 }
 .checkout-line--renewal strong {
   font-weight: 600;
@@ -3587,13 +3558,13 @@ html.checkout-route ::selection {
 .checkout-line--total {
   margin-top: 0.5rem;
   padding-top: 0.5rem;
-  border-top: 1px solid #1212181a;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
 }
 .checkout-fineprint {
   margin: 0.85rem 0 0;
   font-size: 0.82rem;
   line-height: 1.5;
-  color: #1212189e;
+  color: var(--star-dim);
 }
 .checkout-email {
   margin-top: 1rem;
@@ -3603,13 +3574,13 @@ html.checkout-route ::selection {
   width: 100%;
   margin-top: 1.15rem;
   padding: 0.95rem 1.25rem;
-  background: #121218;
-  color: #f6f4ef;
+  background: #f4f1ea;
+  color: #121218;
   border: none;
   box-shadow: none;
 }
 .checkout-pay-btn.glass-surface--pill .glass-surface__content {
-  color: #f6f4ef;
+  color: #121218;
   font-family: var(--font-mono);
   font-size: 0.68rem;
   font-weight: 500;
@@ -3617,7 +3588,7 @@ html.checkout-route ::selection {
   text-transform: uppercase;
 }
 .checkout-pay-btn.glass-surface--pill:hover:not(:disabled) {
-  background: #2a2a32;
+  background: #fff;
 }
 .checkout-pay-btn:disabled {
   opacity: 0.45;
@@ -3633,20 +3604,9 @@ html.checkout-route ::selection {
 .checkout-done__ref {
   word-break: break-all;
 }
-html.checkout-route .checkout-page .glass-surface--input,
-html.checkout-route .checkout-page .glass-surface--fallback.glass-surface--input .glass-surface__tint {
-  background: #fff;
-  box-shadow: inset 0 0 0 1px #12121824;
-}
-html.checkout-route .checkout-page .contact-input,
-html.checkout-route .checkout-page .contact-input::placeholder {
-  color: #121218;
-}
-html.checkout-route .checkout-page .contact-input::placeholder {
-  color: #1212186b;
-}
-html.checkout-route .checkout-page a {
-  color: #121218;
+
+@media (prefers-reduced-motion: reduce) {
+  .progress { display: none; }
 }
 
 /* ---------- Reduced motion ---------- */
