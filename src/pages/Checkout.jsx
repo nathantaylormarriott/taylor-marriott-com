@@ -3,23 +3,18 @@ import { Link, useSearchParams } from 'react-router-dom';
 import GlassButton from '../components/GlassButton';
 import GlassField from '../components/GlassField';
 import checkoutConfig from '../../config/checkout.json';
-import { createCheckoutSession, searchDomains } from '../lib/checkoutApi';
+import domainPricingConfig from '../../config/domain-pricing.json';
+import { domainRenewalUpfrontCopy } from '../../shared/domain-package.js';
+import { createCheckoutSession, fetchDomainSuggestions, searchDomains } from '../lib/checkoutApi';
 import { useShell } from '../layout/Shell';
 import { fadePageChromeIn, primeIncomingRoutePage, revealPageChromeInstant } from '../lib/pageTransition';
+import { parseSearchInput } from '../../shared/domain-search-input.js';
 
 const SITE_PENCE = checkoutConfig.siteAmountPence;
 const STORAGE_KEY = 'tm-checkout-selection-v1';
 
 function formatGbp(pence) {
   return `£${(pence / 100).toFixed(2)}`;
-}
-
-function sanitizeLabel(raw) {
-  let s = String(raw || '').trim().toLowerCase();
-  s = s.replace(/&/g, 'and');
-  s = s.replace(/[^a-z0-9-]+/g, '');
-  s = s.replace(/-+/g, '-').replace(/^-+|-+$/g, '');
-  return s.slice(0, 63);
 }
 
 function loadStoredSelection(placeId) {
@@ -46,6 +41,9 @@ export default function Checkout() {
   const [searchParams] = useSearchParams();
   const placeId = String(searchParams.get('place_id') || '').trim();
   const cancelled = searchParams.get('cancelled') === '1';
+  const contextBusiness = String(searchParams.get('business') || '').trim();
+  const contextTrade = String(searchParams.get('trade') || '').trim();
+  const contextTown = String(searchParams.get('town') || '').trim();
 
   const { reduced, finishRouteTransition, hubRouteHandoffRef } = useShell();
   const entranceRan = useRef(false);
@@ -55,11 +53,15 @@ export default function Checkout() {
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState('');
+  const [alternatives, setAlternatives] = useState([]);
   const [selectedDomain, setSelectedDomain] = useState(null);
   const [selectedPricePence, setSelectedPricePence] = useState(null);
   const [email, setEmail] = useState('');
   const [payError, setPayError] = useState('');
   const [paying, setPaying] = useState(false);
+  const [suggestions, setSuggestions] = useState([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [suggestionsError, setSuggestionsError] = useState('');
 
   const siteDisplay = useMemo(() => formatGbp(SITE_PENCE), []);
 
@@ -105,16 +107,25 @@ export default function Checkout() {
   }, [finishRouteTransition, hubRouteHandoffRef, reduced]);
 
   const runSearch = useCallback(
-    async (label) => {
-      const q = sanitizeLabel(label);
+    async (raw) => {
+      const q = String(raw || '').trim();
       if (!q || !placeId) return;
+      const parsed = parseSearchInput(q);
+      if (!parsed.ok) {
+        setResults([]);
+        setAlternatives([]);
+        setSearchError(parsed.message || 'Enter a valid domain name.');
+        return;
+      }
       setSearching(true);
       setSearchError('');
       try {
         const data = await searchDomains({ placeId, q });
         setResults(data.results || []);
+        setAlternatives(data.alternatives || []);
       } catch (err) {
         setResults([]);
+        setAlternatives([]);
         setSearchError(err.message || 'Could not search domains');
       } finally {
         setSearching(false);
@@ -124,10 +135,34 @@ export default function Checkout() {
   );
 
   useEffect(() => {
+    if (!placeId) return undefined;
+    const ac = new AbortController();
+    setSuggestionsLoading(true);
+    setSuggestionsError('');
+    fetchDomainSuggestions({
+      placeId,
+      business: contextBusiness || undefined,
+      trade: contextTrade || undefined,
+      town: contextTown || undefined,
+      signal: ac.signal,
+    })
+      .then((data) => setSuggestions(data.suggestions || []))
+      .catch((err) => {
+        if (err.name === 'AbortError') return;
+        setSuggestions([]);
+        setSuggestionsError(err.message || 'Could not load suggestions');
+      })
+      .finally(() => setSuggestionsLoading(false));
+    return () => ac.abort();
+  }, [placeId, contextBusiness, contextTrade, contextTown]);
+
+  useEffect(() => {
     if (!addDomain || !placeId) return undefined;
-    const q = sanitizeLabel(searchLabel);
+    const q = String(searchLabel || '').trim();
     if (!q) {
       setResults([]);
+      setAlternatives([]);
+      setSearchError('');
       return undefined;
     }
     const t = window.setTimeout(() => runSearch(q), 400);
@@ -138,6 +173,13 @@ export default function Checkout() {
     if (row.state !== 'available' || row.clientPricePence == null) return;
     setSelectedDomain(row.domain);
     setSelectedPricePence(row.clientPricePence);
+    setPayError('');
+  };
+
+  const onSuggestionChip = (row) => {
+    setSearchLabel(row.domain);
+    setSelectedDomain(null);
+    setSelectedPricePence(null);
     setPayError('');
   };
 
@@ -160,8 +202,11 @@ export default function Checkout() {
     }
   };
 
-  const domainYearlyDisplay =
-    addDomain && selectedPricePence != null ? formatGbp(selectedPricePence) : null;
+  const selectedRenewalCopy =
+    addDomain && selectedPricePence != null ? domainRenewalUpfrontCopy(selectedPricePence) : null;
+
+  const payTodayDisplay =
+    addDomain && selectedDomain ? siteDisplay : addDomain ? null : siteDisplay;
 
   if (!placeId) {
     return (
@@ -188,7 +233,14 @@ export default function Checkout() {
         <header className="checkout-header">
           <h1 className="checkout-title">Complete your website</h1>
           <p className="checkout-lead">
-            One payment for your live site. Optionally add a domain we register and connect for you.
+            One payment for your live site (£{checkoutConfig.siteAmountPence / 100}).
+            {domainPricingConfig.includedMaxYearlyGbp != null ? (
+              <>
+                {' '}
+                Domains up to £{domainPricingConfig.includedMaxYearlyGbp}/year include year one in that
+                price; renewal is billed yearly after that.
+              </>
+            ) : null}
           </p>
           {cancelled ? (
             <p className="checkout-banner" role="status">
@@ -231,14 +283,59 @@ export default function Checkout() {
 
           {addDomain ? (
             <>
+              <div className="checkout-suggestions" aria-labelledby="checkout-suggestions-title">
+                <h3 id="checkout-suggestions-title" className="checkout-suggestions__title">
+                  Suggested for your business
+                </h3>
+                {suggestionsLoading ? (
+                  <div className="checkout-suggestions__skeleton" aria-hidden="true">
+                    {[0, 1, 2].map((i) => (
+                      <span key={i} className="checkout-suggest-chip checkout-suggest-chip--skeleton" />
+                    ))}
+                  </div>
+                ) : null}
+                {!suggestionsLoading && suggestions.length ? (
+                  <div className="checkout-suggestions__chips" role="list">
+                    {suggestions.map((row) => {
+                      const selected =
+                        selectedDomain === row.domain || searchLabel.trim().toLowerCase() === row.domain;
+                      return (
+                        <button
+                          key={row.domain}
+                          type="button"
+                          role="listitem"
+                          className={[
+                            'checkout-suggest-chip',
+                            selected ? 'checkout-suggest-chip--selected' : '',
+                          ]
+                            .filter(Boolean)
+                            .join(' ')}
+                          aria-pressed={selected}
+                          onClick={() => onSuggestionChip(row)}
+                        >
+                          <span className="checkout-suggest-chip__domain">{row.domain}</span>
+                          <span className="checkout-suggest-chip__price">Year 1 included</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : null}
+                {!suggestionsLoading && !suggestions.length && !suggestionsError ? (
+                  <p className="checkout-hint">Search below for a custom name.</p>
+                ) : null}
+                {suggestionsError ? (
+                  <p className="checkout-hint">{suggestionsError}</p>
+                ) : null}
+              </div>
+
               <div className="checkout-search">
                 <GlassField
                   id="checkout-domain-search"
-                  label="Search name (letters, numbers, hyphens)"
+                  label="Domain name (or paste a full address — we check .co.uk, .com and .uk)"
                   name="domain_search"
                   value={searchLabel}
                   onChange={(e) => {
-                    setSearchLabel(sanitizeLabel(e.target.value));
+                    setSearchLabel(e.target.value);
                     setSelectedDomain(null);
                     setSelectedPricePence(null);
                   }}
@@ -252,6 +349,40 @@ export default function Checkout() {
                 ) : null}
               </div>
 
+              {alternatives.length ? (
+                <div className="checkout-alternatives" aria-labelledby="checkout-alternatives-title">
+                  <h3 id="checkout-alternatives-title" className="checkout-suggestions__title">
+                    Similar names available
+                  </h3>
+                  <ul className="checkout-results">
+                    {alternatives.map((row) => {
+                      const isSelected = selectedDomain === row.domain;
+                      return (
+                        <li
+                          key={`alt-${row.domain}`}
+                          className={['checkout-result', isSelected ? 'checkout-result--selected' : '']
+                            .filter(Boolean)
+                            .join(' ')}
+                        >
+                          <div className="checkout-result__main">
+                            <span className="checkout-result__domain">{row.domain}</span>
+                            <span className="checkout-result__status">{row.clientPriceDisplay}/yr</span>
+                          </div>
+                          <GlassButton
+                            type="button"
+                            className="checkout-select-btn"
+                            onClick={() => onSelectDomain(row)}
+                            aria-pressed={isSelected}
+                          >
+                            {isSelected ? 'Selected' : 'Select'}
+                          </GlassButton>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              ) : null}
+
               <ul className="checkout-results" aria-live="polite">
                 {results.map((row) => {
                   const isSelected = selectedDomain === row.domain;
@@ -260,14 +391,17 @@ export default function Checkout() {
                   if (row.state === 'taken') statusLabel = 'Taken';
                   else if (row.state === 'premium') statusLabel = 'Not available';
                   else if (row.state === 'unresolved' || row.state === 'invalid') statusLabel = 'Try again';
-                  else if (row.state === 'available') statusLabel = row.clientPriceDisplay || 'Available';
+                  else if (row.state === 'package_excluded') statusLabel = row.clientPriceDisplay || 'Not available in this package';
+                  else if (row.state === 'available') statusLabel = 'Included year 1';
 
                   return (
                     <li
                       key={row.domain}
                       className={[
                         'checkout-result',
-                        row.state === 'taken' || row.state === 'premium' ? 'checkout-result--muted' : '',
+                        row.state === 'taken' || row.state === 'premium' || row.state === 'package_excluded'
+                          ? 'checkout-result--muted'
+                          : '',
                         row.state === 'taken' ? 'checkout-result--struck' : '',
                         isSelected ? 'checkout-result--selected' : '',
                       ]
@@ -282,7 +416,7 @@ export default function Checkout() {
                         <GlassButton
                           type="button"
                           className="checkout-select-btn"
-                          onClick={() => onSelectDomain(row)}
+                          onClick={() => onSuggestionChip(row)}
                           aria-pressed={isSelected}
                         >
                           {isSelected ? 'Selected' : 'Select'}
@@ -292,6 +426,11 @@ export default function Checkout() {
                   );
                 })}
               </ul>
+              {selectedDomain && selectedRenewalCopy ? (
+                <p className="checkout-renewal-upfront" role="status">
+                  {selectedRenewalCopy}
+                </p>
+              ) : null}
             </>
           ) : null}
         </section>
@@ -305,14 +444,29 @@ export default function Checkout() {
             <strong>{siteDisplay} one-time</strong>
           </p>
           {addDomain && selectedDomain ? (
-            <p className="checkout-line">
-              <span>Domain: {selectedDomain}</span>
-              <strong>{domainYearlyDisplay} / year</strong>
+            <>
+              <p className="checkout-line">
+                <span>Domain: {selectedDomain}</span>
+                <strong>Included (year 1)</strong>
+              </p>
+              {selectedRenewalCopy ? (
+                <p className="checkout-line checkout-line--renewal">
+                  <span>After year 1</span>
+                  <strong>{selectedRenewalCopy.replace(/^First year included\. Then /, '')}</strong>
+                </p>
+              ) : null}
+            </>
+          ) : null}
+          {addDomain && selectedDomain && payTodayDisplay ? (
+            <p className="checkout-line checkout-line--total">
+              <span>Pay today</span>
+              <strong>{payTodayDisplay}</strong>
             </p>
           ) : null}
-          {addDomain ? (
+          {addDomain && !selectedDomain ? (
             <p className="checkout-fineprint">
-              The domain renews yearly at the same price. You can cancel any time.
+              Choose a domain above — year one is included when the yearly price is £
+              {domainPricingConfig.includedMaxYearlyGbp ?? 20} or less.
             </p>
           ) : null}
 

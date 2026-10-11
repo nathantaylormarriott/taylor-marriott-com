@@ -1,7 +1,7 @@
 import { handleOptions, jsonResponse } from './_shared/http.js';
-import { loadCheckoutConfig } from './_shared/checkout-config.js';
-import { checkDomains, getTldPricing, toDomainLabel } from './_shared/porkbun-client.js';
-import { porkbunRowToSearchResult } from './_shared/domainSearchMap.js';
+import { loadCheckoutConfigWithFx } from './_shared/checkout-config-async.js';
+import { getTldPricing } from './_shared/porkbun-client.js';
+import { runDomainSearch } from './_shared/domain-search-run.js';
 import { clientIp, rateLimit } from './_shared/rateLimit.js';
 
 const PLACE_ID_RE = /^[^\s?#&=]{6,256}$/;
@@ -23,46 +23,38 @@ export default async (request) => {
     );
   }
 
-  const config = loadCheckoutConfig();
+  const config = await loadCheckoutConfigWithFx();
   if (config.usdToGbp == null) {
-    return jsonResponse(request, { error: 'Domain pricing is not configured (usdToGbp)' }, 503);
+    return jsonResponse(request, { error: 'fx_unavailable' }, 503);
   }
 
   const url = new URL(request.url);
   const placeId = String(url.searchParams.get('place_id') || '').trim();
-  const qRaw = String(url.searchParams.get('q') || '').trim();
+  const qRaw = String(url.searchParams.get('q') || '');
 
   if (!placeId || !PLACE_ID_RE.test(placeId)) {
     return jsonResponse(request, { error: 'Invalid or missing place_id' }, 400);
   }
 
-  let query;
   try {
-    query = toDomainLabel(qRaw);
-  } catch (err) {
-    return jsonResponse(request, { error: err.message || 'Invalid search label' }, 400);
-  }
-
-  try {
-    const [check, tldPricing] = await Promise.all([
-      checkDomains(query, config.offeredTlds),
-      getTldPricing(config.offeredTlds),
-    ]);
-
-    const results = check.results.map((row) => porkbunRowToSearchResult(row, tldPricing, config));
-
+    const out = await runDomainSearch(qRaw, config, { getTldPricing });
     return jsonResponse(
       request,
       {
-        query: check.baseName,
+        query: out.query,
+        mode: out.parsed.mode,
+        primaryDomain: out.primaryDomain,
         pricingConfigured: true,
-        fx: { usdToGbp: config.usdToGbp, source: config.usdToGbpSource },
-        results,
+        results: out.results,
+        alternatives: out.alternatives,
       },
       200,
       { 'Cache-Control': 'private, no-store' },
     );
   } catch (err) {
+    if (err.code === 'BAD_SEARCH' || err.code === 'empty' || err.code === 'chars' || err.code === 'hyphen' || err.code === 'tld' || err.code === 'short' || err.code === 'format' || err.code === 'length') {
+      return jsonResponse(request, { error: err.message, code: err.code }, 400);
+    }
     console.error('[domain-search]', err);
     if (err.code === 'NO_PORKBUN') {
       return jsonResponse(request, { error: 'Domain search is not configured' }, 503);

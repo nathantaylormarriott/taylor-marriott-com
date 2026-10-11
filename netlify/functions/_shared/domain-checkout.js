@@ -1,6 +1,11 @@
 import crypto from 'node:crypto';
 import { normalizeDomain } from './porkbun-client.js';
-import { loadCheckoutConfig, DEFAULT_RENEWAL_LEAD_DAYS } from './checkout-config.js';
+import { loadCheckoutConfig, DEFAULT_RENEWAL_LEAD_DAYS, tldOf } from './checkout-config.js';
+import {
+  DOMAIN_FIRST_YEAR_TRIAL_DAYS,
+  stripeSubmitMessage,
+} from '../../../shared/domain-package.js';
+import { isYearlyPriceIncludedInPackage, loadDomainPricingConfig } from './domain-pricing.js';
 
 const STRIPE_API = 'https://api.stripe.com/v1';
 export const SITE_PRODUCT_TYPE = 'site_checkout';
@@ -51,6 +56,8 @@ export function buildSiteCheckoutParams(input = {}, { allowIncomplete = false, c
     successUrl,
     cancelUrl,
     siteProductName,
+    netlifySiteId,
+    netlifySiteName,
   } = input || {};
 
   if (!placeId || typeof placeId !== 'string') throw validationError('placeId required');
@@ -73,6 +80,12 @@ export function buildSiteCheckoutParams(input = {}, { allowIncomplete = false, c
       );
     }
     if (n < MIN_AMOUNT_PENCE) throw validationError(`domainAmountPence must be >= ${MIN_AMOUNT_PENCE}`);
+    const pricing = loadDomainPricingConfig();
+    if (!isYearlyPriceIncludedInPackage(n, pricing.includedMaxPence)) {
+      throw validationError(
+        `Domain yearly price exceeds £${pricing.includedMaxYearlyGbp} included in the £299 package`,
+      );
+    }
     domainAmount = n;
   }
 
@@ -98,7 +111,14 @@ export function buildSiteCheckoutParams(input = {}, { allowIncomplete = false, c
 
   const metadata = { product_type: SITE_PRODUCT_TYPE, place_id: placeId, domain: apex };
   const leadDays = Number.isInteger(cfg.renewalLeadDays) ? cfg.renewalLeadDays : DEFAULT_RENEWAL_LEAD_DAYS;
-  if (hasDomain) metadata.renewal_lead_days = String(leadDays);
+  if (hasDomain) {
+    metadata.renewal_lead_days = String(leadDays);
+    metadata.tld = tldOf(apex);
+    metadata.domain_amount_pence = String(domainAmount);
+    metadata.domain_first_year_included = '1';
+    if (netlifySiteId) metadata.netlify_site_id = String(netlifySiteId);
+    if (netlifySiteName) metadata.netlify_site_name = String(netlifySiteName);
+  }
 
   const lineItems = [
     {
@@ -106,7 +126,12 @@ export function buildSiteCheckoutParams(input = {}, { allowIncomplete = false, c
       price_data: {
         currency: 'gbp',
         unit_amount: site,
-        product_data: { name: siteProductName || 'Website (one-time)', metadata: { ...metadata } },
+        product_data: {
+          name: hasDomain
+            ? siteProductName || 'Website + domain (year 1 included)'
+            : siteProductName || 'Website (one-time)',
+          metadata: { ...metadata },
+        },
       },
     },
   ];
@@ -117,7 +142,10 @@ export function buildSiteCheckoutParams(input = {}, { allowIncomplete = false, c
         currency: 'gbp',
         unit_amount: domainAmount,
         recurring: { interval: 'year', interval_count: 1 },
-        product_data: { name: `Domain: ${apex} (yearly)`, metadata: { ...metadata } },
+        product_data: {
+          name: `Domain: ${apex} (yearly renewal after year 1)`,
+          metadata: { ...metadata },
+        },
       },
     });
   }
@@ -133,7 +161,13 @@ export function buildSiteCheckoutParams(input = {}, { allowIncomplete = false, c
   if (hasDomain) {
     params.subscription_data = {
       metadata: { ...metadata },
-      description: `Domain registration and renewal for ${apex}`,
+      description: `Domain renewal for ${apex} after the included first year`,
+      trial_period_days: DOMAIN_FIRST_YEAR_TRIAL_DAYS,
+    };
+    params.custom_text = {
+      submit: {
+        message: stripeSubmitMessage(apex, domainAmount),
+      },
     };
   } else {
     params.payment_intent_data = { metadata: { ...metadata } };

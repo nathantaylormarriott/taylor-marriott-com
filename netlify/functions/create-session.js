@@ -1,8 +1,13 @@
 import { handleOptions, jsonResponse } from './_shared/http.js';
+import { loadCheckoutConfigWithFx } from './_shared/checkout-config-async.js';
 import {
-  loadCheckoutConfig,
-  livePorkbunClientPricePence,
-} from './_shared/checkout-config.js';
+  fixedYearlyPenceForDomain,
+  loadDomainPricingConfig,
+  assertPorkbunWithinClientPrice,
+  isYearlyPriceIncludedInPackage,
+  PACKAGE_EXCLUDED_LABEL,
+} from './_shared/domain-pricing.js';
+import { CLIENT_SITES } from './_shared/client-sites.js';
 import { checkDomain, getTldPricing, normalizeDomain } from './_shared/porkbun-client.js';
 import {
   checkToAvailabilityState,
@@ -37,9 +42,9 @@ export default async (request) => {
     return jsonResponse(request, { error: 'Invalid JSON body' }, 400);
   }
 
-  const config = loadCheckoutConfig();
+  const config = await loadCheckoutConfigWithFx();
   if (config.usdToGbp == null) {
-    return jsonResponse(request, { error: 'usdToGbp_not_set' }, 503);
+    return jsonResponse(request, { error: 'fx_unavailable' }, 503);
   }
 
   const placeId = String(body.place_id || '').trim();
@@ -85,11 +90,23 @@ export default async (request) => {
       }
 
       const quote = quoteFromCheckAndTld(check, tldPricing);
-      const priced = livePorkbunClientPricePence(quote, config);
+      const domainPricing = loadDomainPricingConfig();
+      const priced = fixedYearlyPenceForDomain(domain, domainPricing);
       if (priced.pence == null) {
+        return jsonResponse(request, { error: 'domain_price_not_configured', domain, tld: priced.tld }, 409);
+      }
+      try {
+        assertPorkbunWithinClientPrice(quote, priced.pence, config.usdToGbp);
+      } catch (guardErr) {
+        if (guardErr.code === 'COST_ABOVE_CLIENT_PRICE') {
+          return jsonResponse(request, { error: 'domain_cost_above_retail', domain }, 409);
+        }
+        throw guardErr;
+      }
+      if (!isYearlyPriceIncludedInPackage(priced.pence, domainPricing.includedMaxPence)) {
         return jsonResponse(
           request,
-          { error: priced.reason || 'no_registrar_price', domain },
+          { error: 'domain_not_in_package', message: PACKAGE_EXCLUDED_LABEL, domain },
           409,
         );
       }
@@ -108,6 +125,7 @@ export default async (request) => {
 
   try {
     const idempotencyKey = siteCheckoutIdempotencyKey(placeId, domain);
+    const siteHit = CLIENT_SITES[placeId];
     const result = await createSiteCheckoutSession(
       {
         placeId,
@@ -116,6 +134,8 @@ export default async (request) => {
         customerEmail: emailRaw || undefined,
         successUrl,
         cancelUrl,
+        netlifySiteId: siteHit && siteHit.siteId,
+        netlifySiteName: siteHit && siteHit.siteName,
       },
       { idempotencyKey, config },
     );

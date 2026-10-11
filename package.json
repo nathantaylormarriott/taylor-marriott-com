@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite --host --port 5274",
     "build": "vite build && node scripts/postbuild-seo.mjs",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:domain": "node --test tests/**/*.test.mjs"
   },
   "dependencies": {
     "@netlify/blobs": "^11.1.3",

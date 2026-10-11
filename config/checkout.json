@@ -3,8 +3,7 @@
     "Cold-outreach website checkout (website fee + optional yearly domain add-on).",
     "siteAmountPence: one-time website fee in pence. 29900 = £299.",
     "checkoutBaseUrl: preview CTA target. Env CHECKOUT_BASE_URL overrides. null = CTA hidden in generator.",
-    "Live domain pricing: yearly GBP = ceil(max(Porkbun registration, renewal) USD cents × usdToGbp). Env CHECKOUT_USD_TO_GBP overrides usdToGbp.",
-    "Basis max(registration, renewal) because Stripe bills the same yearly amount while Porkbun renewal applies from year two.",
+    "Retail domain prices: config/domain-pricing.json (fixed GBP per TLD). USD→GBP for Porkbun cost guard (+10%) is fetched live (Frankfurter / open.er-api.com, 1h cache); CHECKOUT_USD_TO_GBP is emergency fallback only.",
     "renewalLeadDays: client Stripe charge lands this many days before Porkbun expiry (30)."
   ],
   "siteAmountPence": 29900,

@@ -1,4 +1,6 @@
-import { livePorkbunClientPricePence, formatGbp, tldOf } from './checkout-config.js';
+import { formatGbp, tldOf } from './checkout-config.js';
+import { fixedYearlyPenceForDomain, loadDomainPricingConfig, isYearlyPriceIncludedInPackage, PACKAGE_EXCLUDED_LABEL } from './domain-pricing.js';
+import { domainRenewalUpfrontCopy } from '../../../shared/domain-package.js';
 
 export function porkbunRowToSearchResult(row, tldPricing, config) {
   const domain = row.domain;
@@ -24,11 +26,20 @@ export function porkbunRowToSearchResult(row, tldPricing, config) {
 
   let clientPricePence = null;
   let clientPriceDisplay = null;
+  let renewalUpfront = null;
   if (state === 'available') {
-    const priced = livePorkbunClientPricePence(quote, config);
+    const pricing = loadDomainPricingConfig();
+    const priced = fixedYearlyPenceForDomain(domain, pricing);
     if (priced.pence != null) {
       clientPricePence = priced.pence;
-      clientPriceDisplay = formatGbp(priced.pence);
+      if (!isYearlyPriceIncludedInPackage(priced.pence, pricing.includedMaxPence)) {
+        state = 'package_excluded';
+        clientPriceDisplay = PACKAGE_EXCLUDED_LABEL;
+        clientPricePence = null;
+      } else {
+        clientPriceDisplay = formatGbp(priced.pence);
+        renewalUpfront = domainRenewalUpfrontCopy(priced.pence);
+      }
     }
   }
 
@@ -38,6 +49,8 @@ export function porkbunRowToSearchResult(row, tldPricing, config) {
     state,
     clientPricePence,
     clientPriceDisplay,
+    renewalUpfront,
+    firstYearIncluded: state === 'available',
   };
 }
 
