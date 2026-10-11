@@ -5,4 +5,5 @@ dist
 .env.*
 !.env.example
 .netlify
+tests/.bundled-handlers
 

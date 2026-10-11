@@ -1,8 +1,14 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { buildCheckoutPreviewHtml } from '../netlify/functions/_shared/checkout-preview-build.js';
-import { normalizeCheckoutPreviewSite } from '../shared/checkout-preview-site.js';
-import { previewUrlFromRegistry } from '../netlify/functions/_shared/checkout-preview-resolve.js';
+import {
+  normalizeCheckoutPreviewSite,
+  normalizeVerifiedPreviewSite,
+} from '../shared/checkout-preview-site.js';
+import {
+  previewUrlFromRegistry,
+  resolveCheckoutPreviewSiteUrl,
+} from '../netlify/functions/_shared/checkout-preview-resolve.js';
 
 describe('normalizeCheckoutPreviewSite', () => {
   it('accepts HTTPS Netlify app URLs without query or hash', () => {
@@ -15,6 +21,20 @@ describe('normalizeCheckoutPreviewSite', () => {
   it('rejects non-Netlify hosts', () => {
     assert.equal(normalizeCheckoutPreviewSite('https://evil.com/'), '');
     assert.equal(normalizeCheckoutPreviewSite('http://tmbulk-x.netlify.app/'), '');
+  });
+
+  it('normalizeVerifiedPreviewSite allows verified custom domains', () => {
+    assert.equal(normalizeVerifiedPreviewSite('https://client.example.co.uk/'), 'https://client.example.co.uk/');
+    assert.equal(normalizeVerifiedPreviewSite('https://tmbulk-x.netlify.app/'), 'https://tmbulk-x.netlify.app/');
+  });
+});
+
+describe('resolveCheckoutPreviewSiteUrl', () => {
+  it('returns S&R from registry without Netlify API', async () => {
+    const hit = await resolveCheckoutPreviewSiteUrl('cid-5705786826933327223');
+    assert.ok(hit);
+    assert.match(hit.url, /tmbulk-s-and-r-construction-atherstone\.netlify\.app/);
+    assert.equal(hit.source, 'registry');
   });
 });
 
