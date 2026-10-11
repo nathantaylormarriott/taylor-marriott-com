@@ -26,7 +26,7 @@ Client-facing checkout for the £299 website fee and an optional yearly domain a
 | `NETLIFY_AUTH_TOKEN` | Fulfilment | Finds the client site and sets its custom domain |
 | `DOMAIN_PURCHASE_LIVE` | Kill switch | `1` = really register/renew at Porkbun (live-mode Stripe only). Anything else = dry run |
 | `DOMAIN_CONNECT_LIVE` | Kill switch | `1` = really change DNS + Netlify custom domain (first purchase only) |
-| `CHECKOUT_USD_TO_GBP` | Recommended | FX guard vs Porkbun cost (not used to set retail prices) |
+| `CHECKOUT_USD_TO_GBP` | Emergency fallback | Only if live FX APIs + blob cache unavailable (see pricing section) |
 | `CHECKOUT_BASE_URL` | Optional | e.g. `https://taylor-marriott.com/checkout` |
 
 ## Domain retail pricing (fixed per TLD)
@@ -34,7 +34,7 @@ Client-facing checkout for the £299 website fee and an optional yearly domain a
 Yearly client prices are **fixed GBP** in `config/domain-pricing.json` (placeholders until Nathan confirms), e.g. `.co.uk` / `.uk` £15, `.com` £20.
 
 - Search and checkout show these retail prices, not pass-through Porkbun quotes.
-- `create-session` still checks Porkbun and **refuses** premium names or when live Porkbun cost (USD × `CHECKOUT_USD_TO_GBP`, +10% margin) exceeds the retail price charged.
+- `create-session` still checks Porkbun and **refuses** premium names or when live Porkbun cost (USD × live USD→GBP rate, +10% margin) exceeds the retail price charged. FX: Frankfurter (ECB daily) → open.er-api.com → 1h blob cache → `CHECKOUT_USD_TO_GBP` env.
 
 Suggested checkout copy: *“The domain renews yearly at £X until cancelled; if payment fails it lapses.”* (Use the TLD price from `domain-pricing.json`.)
 

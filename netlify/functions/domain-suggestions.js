@@ -1,5 +1,5 @@
 import { handleOptions, jsonResponse } from './_shared/http.js';
-import { loadCheckoutConfig } from './_shared/checkout-config.js';
+import { loadCheckoutConfigWithFx } from './_shared/checkout-config-async.js';
 import { checkDomainList } from './_shared/porkbun-client.js';
 import { getTldPricing } from './_shared/porkbun-client.js';
 import { resolveCheckoutBusinessContext } from './_shared/checkout-business-context.js';
@@ -27,9 +27,9 @@ export default async (request) => {
     );
   }
 
-  const config = loadCheckoutConfig();
+  const config = await loadCheckoutConfigWithFx();
   if (config.usdToGbp == null) {
-    return jsonResponse(request, { error: 'Domain pricing is not configured (usdToGbp)' }, 503);
+    return jsonResponse(request, { error: 'fx_unavailable' }, 503);
   }
 
   const url = new URL(request.url);

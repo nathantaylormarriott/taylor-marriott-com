@@ -1,6 +1,6 @@
 import { fulfilDomainOrder, switchesFromEnv } from './_shared/domain-fulfil.js';
 import { getOrder, putOrder } from './_shared/domainOrders.js';
-import { loadCheckoutConfig } from './_shared/checkout-config.js';
+import { loadCheckoutConfigWithFx } from './_shared/checkout-config-async.js';
 
 /**
  * Background job. Only acts on orders the signed Stripe webhook stored with
@@ -23,10 +23,10 @@ export default async (request) => {
   await putOrder(sessionId, { ...record, status: 'processing' });
 
   const switches = switchesFromEnv();
-  const { usdToGbp } = loadCheckoutConfig();
+  const config = await loadCheckoutConfigWithFx();
   const result = await fulfilDomainOrder(record.order, {
     ...switches,
-    usdToGbp,
+    usdToGbp: config.usdToGbp,
     alreadyRegistered: record.registered === true,
   });
 

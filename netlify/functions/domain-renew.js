@@ -1,7 +1,7 @@
 import { fulfilDomainRenewal, switchesFromEnv } from './_shared/domain-renew.js';
 import { getRenewal, putRenewal, RENEWAL_DONE_STATUSES } from './_shared/domainRenewals.js';
 import { getSubscriptionRecord } from './_shared/domainSubscriptions.js';
-import { loadCheckoutConfig } from './_shared/checkout-config.js';
+import { loadCheckoutConfigWithFx } from './_shared/checkout-config-async.js';
 
 /**
  * Background job: Porkbun renew for one paid subscription_cycle invoice (idempotent per invoice id).
@@ -23,7 +23,7 @@ export default async (request) => {
   await putRenewal(invoiceId, { ...record, status: 'processing' });
 
   const switches = switchesFromEnv();
-  const { usdToGbp } = loadCheckoutConfig();
+  const config = await loadCheckoutConfigWithFx();
   let subscriptionLapsing = false;
   if (record.job && record.job.subscriptionId) {
     const subRec = await getSubscriptionRecord(record.job.subscriptionId);
@@ -32,7 +32,7 @@ export default async (request) => {
 
   const result = await fulfilDomainRenewal(record.job, {
     ...switches,
-    usdToGbp,
+    usdToGbp: config.usdToGbp,
     subscriptionLapsing,
   });
 

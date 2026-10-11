@@ -1,5 +1,5 @@
 import { handleOptions, jsonResponse } from './_shared/http.js';
-import { loadCheckoutConfig } from './_shared/checkout-config.js';
+import { loadCheckoutConfigWithFx } from './_shared/checkout-config-async.js';
 import {
   fixedYearlyPenceForDomain,
   loadDomainPricingConfig,
@@ -42,9 +42,9 @@ export default async (request) => {
     return jsonResponse(request, { error: 'Invalid JSON body' }, 400);
   }
 
-  const config = loadCheckoutConfig();
+  const config = await loadCheckoutConfigWithFx();
   if (config.usdToGbp == null) {
-    return jsonResponse(request, { error: 'usdToGbp_not_set' }, 503);
+    return jsonResponse(request, { error: 'fx_unavailable' }, 503);
   }
 
   const placeId = String(body.place_id || '').trim();
