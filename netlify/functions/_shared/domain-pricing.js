@@ -1,5 +1,4 @@
 import fs from 'node:fs';
-import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tldOf } from './checkout-config.js';
 import { priceToCents } from './porkbun-client.js';
