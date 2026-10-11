@@ -2,8 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const CONFIG_PATH = path.join(__dirname, '..', '..', '..', 'config', 'checkout.json');
+/** Not named __dirname — Netlify's ESM bundle injects its own __dirname shim. */
+const CONFIG_PATH = fileURLToPath(new URL('../../../config/checkout.json', import.meta.url));
 const DEFAULT_SITE_AMOUNT_PENCE = 29900;
 export const DEFAULT_RENEWAL_LEAD_DAYS = 30;
 const MIN_RENEWAL_LEAD_DAYS = 1;

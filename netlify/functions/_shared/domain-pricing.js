@@ -1,5 +1,4 @@
 import fs from 'node:fs';
-import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tldOf } from './checkout-config.js';
 import { priceToCents } from './porkbun-client.js';
@@ -7,8 +6,8 @@ import { includedMaxPenceFromGbp, isYearlyPriceIncludedInPackage, PACKAGE_EXCLUD
 
 export { PACKAGE_EXCLUDED_LABEL, isYearlyPriceIncludedInPackage };
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DEFAULT_PATH = path.join(__dirname, '..', '..', '..', 'config', 'domain-pricing.json');
+/** Not named __dirname — Netlify's ESM bundle injects its own __dirname shim. */
+const DEFAULT_PATH = fileURLToPath(new URL('../../../config/domain-pricing.json', import.meta.url));
 
 function readJson(file) {
   try {
