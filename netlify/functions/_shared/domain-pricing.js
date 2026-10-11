@@ -3,6 +3,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tldOf } from './checkout-config.js';
 import { priceToCents } from './porkbun-client.js';
+import { includedMaxPenceFromGbp, isYearlyPriceIncludedInPackage, PACKAGE_EXCLUDED_LABEL } from '../../../shared/domain-package.js';
+
+export { PACKAGE_EXCLUDED_LABEL, isYearlyPriceIncludedInPackage };
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_PATH = path.join(__dirname, '..', '..', '..', 'config', 'domain-pricing.json');
@@ -22,11 +25,20 @@ export function loadDomainPricingConfig({ configPath, env = process.env } = {}) 
   const file = configPath || (env && env.DOMAIN_PRICING_CONFIG) || DEFAULT_PATH;
   const raw = readJson(file);
   const byTld = { ...(raw.yearlyPenceByTld || {}) };
+  const envMax = env && env.DOMAIN_INCLUDED_MAX_GBP != null ? String(env.DOMAIN_INCLUDED_MAX_GBP).trim() : '';
+  const includedMaxYearlyGbp = envMax
+    ? Number(envMax)
+    : Number.isFinite(Number(raw.includedMaxYearlyGbp))
+      ? Number(raw.includedMaxYearlyGbp)
+      : 20;
+  const includedMaxPence = includedMaxPenceFromGbp(includedMaxYearlyGbp);
   return {
     file,
     currency: raw.currency || 'gbp',
     yearlyPenceByTld: byTld,
     defaultYearlyPence: Number.isInteger(raw.defaultYearlyPence) ? raw.defaultYearlyPence : 2000,
+    includedMaxYearlyGbp,
+    includedMaxPence,
   };
 }
 

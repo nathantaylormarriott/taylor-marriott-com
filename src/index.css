@@ -3472,6 +3472,22 @@ html.pipeline-route .nav-progressive-blur {
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
+.checkout-renewal-upfront {
+  margin: 0.75rem 0 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  opacity: 0.92;
+}
+.checkout-line--renewal strong {
+  font-weight: 600;
+  text-align: right;
+  max-width: 16rem;
+}
+.checkout-line--total {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
 .checkout-fineprint {
   margin: 0.85rem 0 0;
   font-size: 0.82rem;

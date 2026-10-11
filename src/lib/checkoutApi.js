@@ -37,7 +37,7 @@ export async function createCheckoutSession({ placeId, domain, email }) {
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const err = new Error(data.error || 'Could not start checkout');
+    const err = new Error(data.message || data.error || 'Could not start checkout');
     err.status = res.status;
     err.payload = data;
     throw err;

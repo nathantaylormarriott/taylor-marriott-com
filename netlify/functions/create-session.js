@@ -1,6 +1,12 @@
 import { handleOptions, jsonResponse } from './_shared/http.js';
 import { loadCheckoutConfig } from './_shared/checkout-config.js';
-import { fixedYearlyPenceForDomain, loadDomainPricingConfig, assertPorkbunWithinClientPrice } from './_shared/domain-pricing.js';
+import {
+  fixedYearlyPenceForDomain,
+  loadDomainPricingConfig,
+  assertPorkbunWithinClientPrice,
+  isYearlyPriceIncludedInPackage,
+  PACKAGE_EXCLUDED_LABEL,
+} from './_shared/domain-pricing.js';
 import { CLIENT_SITES } from './_shared/client-sites.js';
 import { checkDomain, getTldPricing, normalizeDomain } from './_shared/porkbun-client.js';
 import {
@@ -96,6 +102,13 @@ export default async (request) => {
           return jsonResponse(request, { error: 'domain_cost_above_retail', domain }, 409);
         }
         throw guardErr;
+      }
+      if (!isYearlyPriceIncludedInPackage(priced.pence, domainPricing.includedMaxPence)) {
+        return jsonResponse(
+          request,
+          { error: 'domain_not_in_package', message: PACKAGE_EXCLUDED_LABEL, domain },
+          409,
+        );
       }
       domainAmountPence = priced.pence;
     } catch (err) {

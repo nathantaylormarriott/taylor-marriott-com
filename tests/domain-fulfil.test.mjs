@@ -175,6 +175,8 @@ test('checkout with domain: subscription mode, one-time site + yearly domain, ri
   assert.equal(p.params.line_items[0].price_data.unit_amount, 29900);
   assert.equal(p.params.line_items[0].price_data.recurring, undefined);
   assert.equal(p.params.line_items[1].price_data.recurring.interval, 'year');
+  assert.equal(p.params.subscription_data.trial_period_days, 365);
+  assert.equal(p.params.metadata.domain_first_year_included, '1');
   assert.equal(p.params.metadata.domain_amount_pence, '1500');
   assert.equal(p.params.metadata.tld, 'co.uk');
   assert.equal(p.params.metadata.netlify_site_id, 'site-uuid');

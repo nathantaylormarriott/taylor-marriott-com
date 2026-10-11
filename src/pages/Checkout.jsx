@@ -3,6 +3,8 @@ import { Link, useSearchParams } from 'react-router-dom';
 import GlassButton from '../components/GlassButton';
 import GlassField from '../components/GlassField';
 import checkoutConfig from '../../config/checkout.json';
+import domainPricingConfig from '../../config/domain-pricing.json';
+import { domainRenewalUpfrontCopy } from '../../shared/domain-package.js';
 import { createCheckoutSession, fetchDomainSuggestions, searchDomains } from '../lib/checkoutApi';
 import { useShell } from '../layout/Shell';
 import { fadePageChromeIn, primeIncomingRoutePage, revealPageChromeInstant } from '../lib/pageTransition';
@@ -200,8 +202,11 @@ export default function Checkout() {
     }
   };
 
-  const domainYearlyDisplay =
-    addDomain && selectedPricePence != null ? formatGbp(selectedPricePence) : null;
+  const selectedRenewalCopy =
+    addDomain && selectedPricePence != null ? domainRenewalUpfrontCopy(selectedPricePence) : null;
+
+  const payTodayDisplay =
+    addDomain && selectedDomain ? siteDisplay : addDomain ? null : siteDisplay;
 
   if (!placeId) {
     return (
@@ -228,7 +233,14 @@ export default function Checkout() {
         <header className="checkout-header">
           <h1 className="checkout-title">Complete your website</h1>
           <p className="checkout-lead">
-            One payment for your live site. Optionally add a domain we register and connect for you.
+            One payment for your live site (£{checkoutConfig.siteAmountPence / 100}).
+            {domainPricingConfig.includedMaxYearlyGbp != null ? (
+              <>
+                {' '}
+                Domains up to £{domainPricingConfig.includedMaxYearlyGbp}/year include year one in that
+                price; renewal is billed yearly after that.
+              </>
+            ) : null}
           </p>
           {cancelled ? (
             <p className="checkout-banner" role="status">
@@ -302,9 +314,7 @@ export default function Checkout() {
                           onClick={() => onSuggestionChip(row)}
                         >
                           <span className="checkout-suggest-chip__domain">{row.domain}</span>
-                          <span className="checkout-suggest-chip__price">
-                            {row.clientPriceDisplay}/yr
-                          </span>
+                          <span className="checkout-suggest-chip__price">Year 1 included</span>
                         </button>
                       );
                     })}
@@ -381,14 +391,17 @@ export default function Checkout() {
                   if (row.state === 'taken') statusLabel = 'Taken';
                   else if (row.state === 'premium') statusLabel = 'Not available';
                   else if (row.state === 'unresolved' || row.state === 'invalid') statusLabel = 'Try again';
-                  else if (row.state === 'available') statusLabel = row.clientPriceDisplay || 'Available';
+                  else if (row.state === 'package_excluded') statusLabel = row.clientPriceDisplay || 'Not available in this package';
+                  else if (row.state === 'available') statusLabel = 'Included year 1';
 
                   return (
                     <li
                       key={row.domain}
                       className={[
                         'checkout-result',
-                        row.state === 'taken' || row.state === 'premium' ? 'checkout-result--muted' : '',
+                        row.state === 'taken' || row.state === 'premium' || row.state === 'package_excluded'
+                          ? 'checkout-result--muted'
+                          : '',
                         row.state === 'taken' ? 'checkout-result--struck' : '',
                         isSelected ? 'checkout-result--selected' : '',
                       ]
@@ -413,6 +426,11 @@ export default function Checkout() {
                   );
                 })}
               </ul>
+              {selectedDomain && selectedRenewalCopy ? (
+                <p className="checkout-renewal-upfront" role="status">
+                  {selectedRenewalCopy}
+                </p>
+              ) : null}
             </>
           ) : null}
         </section>
@@ -426,14 +444,29 @@ export default function Checkout() {
             <strong>{siteDisplay} one-time</strong>
           </p>
           {addDomain && selectedDomain ? (
-            <p className="checkout-line">
-              <span>Domain: {selectedDomain}</span>
-              <strong>{domainYearlyDisplay} / year</strong>
+            <>
+              <p className="checkout-line">
+                <span>Domain: {selectedDomain}</span>
+                <strong>Included (year 1)</strong>
+              </p>
+              {selectedRenewalCopy ? (
+                <p className="checkout-line checkout-line--renewal">
+                  <span>After year 1</span>
+                  <strong>{selectedRenewalCopy.replace(/^First year included\. Then /, '')}</strong>
+                </p>
+              ) : null}
+            </>
+          ) : null}
+          {addDomain && selectedDomain && payTodayDisplay ? (
+            <p className="checkout-line checkout-line--total">
+              <span>Pay today</span>
+              <strong>{payTodayDisplay}</strong>
             </p>
           ) : null}
-          {addDomain ? (
+          {addDomain && !selectedDomain ? (
             <p className="checkout-fineprint">
-              The domain renews yearly at the same price until cancelled; if payment fails it lapses.
+              Choose a domain above — year one is included when the yearly price is £
+              {domainPricingConfig.includedMaxYearlyGbp ?? 20} or less.
             </p>
           ) : null}
 
