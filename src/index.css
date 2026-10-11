@@ -3339,6 +3339,71 @@ html.pipeline-route .nav-progressive-blur {
 .checkout-switch input:checked + .checkout-switch__ui::after {
   transform: translateX(1.25rem);
 }
+.checkout-suggestions {
+  margin-top: 0.75rem;
+}
+.checkout-suggestions__title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  margin: 0 0 0.65rem;
+  opacity: 0.85;
+}
+.checkout-suggestions__chips,
+.checkout-suggestions__skeleton {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.checkout-suggest-chip {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  max-width: 100%;
+  text-align: left;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.checkout-suggest-chip:hover {
+  border-color: rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.1);
+}
+.checkout-suggest-chip--selected {
+  border-color: rgba(120, 200, 255, 0.75);
+  background: rgba(80, 160, 255, 0.15);
+}
+.checkout-suggest-chip__domain {
+  font-size: 0.82rem;
+  font-weight: 600;
+  word-break: break-all;
+}
+.checkout-suggest-chip__price {
+  font-size: 0.72rem;
+  opacity: 0.75;
+}
+.checkout-suggest-chip--skeleton {
+  min-width: 7.5rem;
+  min-height: 2.6rem;
+  border-radius: 999px;
+  animation: checkout-suggest-pulse 1.2s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes checkout-suggest-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.65;
+  }
+}
 .checkout-search {
   margin-top: 1rem;
 }

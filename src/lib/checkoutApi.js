@@ -1,3 +1,18 @@
+export async function fetchDomainSuggestions({ placeId, business, trade, town, signal }) {
+  const params = new URLSearchParams({ place_id: placeId });
+  if (business) params.set('business', business);
+  if (trade) params.set('trade', trade);
+  if (town) params.set('town', town);
+  const res = await fetch(`/api/domain-suggestions?${params}`, { signal });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const err = new Error(data.error || 'Suggestions failed');
+    err.status = res.status;
+    throw err;
+  }
+  return data;
+}
+
 export async function searchDomains({ placeId, q, signal }) {
   const params = new URLSearchParams({ place_id: placeId, q });
   const res = await fetch(`/api/domain-search?${params}`, { signal });

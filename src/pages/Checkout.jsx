@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import GlassButton from '../components/GlassButton';
 import GlassField from '../components/GlassField';
 import checkoutConfig from '../../config/checkout.json';
-import { createCheckoutSession, searchDomains } from '../lib/checkoutApi';
+import { createCheckoutSession, fetchDomainSuggestions, searchDomains } from '../lib/checkoutApi';
 import { useShell } from '../layout/Shell';
 import { fadePageChromeIn, primeIncomingRoutePage, revealPageChromeInstant } from '../lib/pageTransition';
 
@@ -46,6 +46,9 @@ export default function Checkout() {
   const [searchParams] = useSearchParams();
   const placeId = String(searchParams.get('place_id') || '').trim();
   const cancelled = searchParams.get('cancelled') === '1';
+  const contextBusiness = String(searchParams.get('business') || '').trim();
+  const contextTrade = String(searchParams.get('trade') || '').trim();
+  const contextTown = String(searchParams.get('town') || '').trim();
 
   const { reduced, finishRouteTransition, hubRouteHandoffRef } = useShell();
   const entranceRan = useRef(false);
@@ -60,6 +63,9 @@ export default function Checkout() {
   const [email, setEmail] = useState('');
   const [payError, setPayError] = useState('');
   const [paying, setPaying] = useState(false);
+  const [suggestions, setSuggestions] = useState([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [suggestionsError, setSuggestionsError] = useState('');
 
   const siteDisplay = useMemo(() => formatGbp(SITE_PENCE), []);
 
@@ -122,6 +128,28 @@ export default function Checkout() {
     },
     [placeId],
   );
+
+  useEffect(() => {
+    if (!placeId) return undefined;
+    const ac = new AbortController();
+    setSuggestionsLoading(true);
+    setSuggestionsError('');
+    fetchDomainSuggestions({
+      placeId,
+      business: contextBusiness || undefined,
+      trade: contextTrade || undefined,
+      town: contextTown || undefined,
+      signal: ac.signal,
+    })
+      .then((data) => setSuggestions(data.suggestions || []))
+      .catch((err) => {
+        if (err.name === 'AbortError') return;
+        setSuggestions([]);
+        setSuggestionsError(err.message || 'Could not load suggestions');
+      })
+      .finally(() => setSuggestionsLoading(false));
+    return () => ac.abort();
+  }, [placeId, contextBusiness, contextTrade, contextTown]);
 
   useEffect(() => {
     if (!addDomain || !placeId) return undefined;
@@ -231,6 +259,52 @@ export default function Checkout() {
 
           {addDomain ? (
             <>
+              <div className="checkout-suggestions" aria-labelledby="checkout-suggestions-title">
+                <h3 id="checkout-suggestions-title" className="checkout-suggestions__title">
+                  Suggested for your business
+                </h3>
+                {suggestionsLoading ? (
+                  <div className="checkout-suggestions__skeleton" aria-hidden="true">
+                    {[0, 1, 2].map((i) => (
+                      <span key={i} className="checkout-suggest-chip checkout-suggest-chip--skeleton" />
+                    ))}
+                  </div>
+                ) : null}
+                {!suggestionsLoading && suggestions.length ? (
+                  <div className="checkout-suggestions__chips" role="list">
+                    {suggestions.map((row) => {
+                      const selected = selectedDomain === row.domain;
+                      return (
+                        <button
+                          key={row.domain}
+                          type="button"
+                          role="listitem"
+                          className={[
+                            'checkout-suggest-chip',
+                            selected ? 'checkout-suggest-chip--selected' : '',
+                          ]
+                            .filter(Boolean)
+                            .join(' ')}
+                          aria-pressed={selected}
+                          onClick={() => onSelectDomain(row)}
+                        >
+                          <span className="checkout-suggest-chip__domain">{row.domain}</span>
+                          <span className="checkout-suggest-chip__price">
+                            {row.clientPriceDisplay}/yr
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : null}
+                {!suggestionsLoading && !suggestions.length && !suggestionsError ? (
+                  <p className="checkout-hint">Search below for a custom name.</p>
+                ) : null}
+                {suggestionsError ? (
+                  <p className="checkout-hint">{suggestionsError}</p>
+                ) : null}
+              </div>
+
               <div className="checkout-search">
                 <GlassField
                   id="checkout-domain-search"

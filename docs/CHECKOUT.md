@@ -9,6 +9,7 @@ Client-facing checkout for the £299 website fee and an optional yearly domain a
 | `/checkout?place_id=…` | Domain search, cart, pay |
 | `/checkout/done?session_id=…` | Stripe success return |
 | `GET /api/domain-search` | Porkbun availability + fixed retail GBP yearly price |
+| `GET /api/domain-suggestions` | Auto-suggested domains from business/trade/town (Porkbun check, cached ~5 min) |
 | `POST /api/create-session` | Stripe Checkout Session (server recomputes amounts) |
 | `POST /api/stripe-webhook` | Signature verify, queue orders/renewals, start background jobs |
 | `POST /api/domain-fulfil` | Background: Porkbun register → DNS → Netlify custom domain |
@@ -76,7 +77,7 @@ Failed / cancelled subscription
 
 1. Set env vars above in Netlify (or local `.env` for `netlify dev`).
 2. Open `/checkout?place_id=ChIJ_test_place_id_example123`.
-3. Toggle **Add a domain**, search — available TLDs show fixed £/year from `domain-pricing.json`.
+3. Toggle **Add a domain** — suggested domains load in the background (chips); or search manually. Optional query params: `business`, `trade`, `town` (also read from `client-sites.js`).
 4. Pay opens Stripe test Checkout (subscription when a domain is selected).
 5. Card `4242 4242 4242 4242` — test mode, no real money.
 6. Webhook dry-run: orders queued; fulfil/renew jobs log planned Porkbun requests unless switches are on **and** live mode.

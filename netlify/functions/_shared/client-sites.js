@@ -10,6 +10,8 @@ export const CLIENT_SITES = Object.freeze({
   'cid-5705786826933327223': {
     siteId: 'f71d8d6d-79b1-44c7-9531-6f926bca9b3c',
     siteName: 'tmbulk-s-and-r-construction-atherstone',
-    business: 'S&R Construction, Atherstone',
+    business: 'S&R Construction',
+    trade: 'construction',
+    town: 'Atherstone',
   },
 });

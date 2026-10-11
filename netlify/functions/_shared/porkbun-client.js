@@ -137,6 +137,40 @@ export async function checkDomain(domain) {
   return summarizeCheck(apex, data);
 }
 
+/** Bulk availability for up to 25 full apex domains (used by suggestions). */
+export async function checkDomainList(domains) {
+  const list = [...new Set(domains.map((d) => normalizeDomain(d)))];
+  if (!list.length) return { domains: list, results: [] };
+  if (list.length > BULK_CHECK_MAX) {
+    const err = new Error(`At most ${BULK_CHECK_MAX} domains per check (got ${list.length})`);
+    err.code = 'TOO_MANY_DOMAINS';
+    throw err;
+  }
+  const data = await porkbunPost('/domain/checkDomain', { domains: list });
+  const answered = data && data.domains && typeof data.domains === 'object' ? data.domains : {};
+  const unresolved = new Set(Array.isArray(data && data.unresolved) ? data.unresolved : []);
+  const invalidList = Array.isArray(data && data.invalid) ? data.invalid : [];
+  const invalid = new Map(
+    invalidList.map((x) => [String((x && (x.domain || x.name)) || x).toLowerCase(), x]),
+  );
+  const results = list.map((d) => {
+    if (answered[d]) return { ...summarizeResponse(d, answered[d], 'SUCCESS'), state: 'answered' };
+    if (unresolved.has(d)) return { domain: d, available: null, price: null, state: 'unresolved' };
+    if (invalid.has(d)) {
+      const inv = invalid.get(d);
+      return {
+        domain: d,
+        available: null,
+        price: null,
+        state: 'invalid',
+        reason: (inv && (inv.reason || inv.message)) || null,
+      };
+    }
+    return { domain: d, available: null, price: null, state: 'missing' };
+  });
+  return { domains: list, results };
+}
+
 export async function checkDomains(baseName, tlds = DEFAULT_TLDS) {
   const domains = buildCandidateDomains(baseName, tlds);
   if (domains.length > BULK_CHECK_MAX) {
