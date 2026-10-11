@@ -25,8 +25,9 @@ export async function searchDomains({ placeId, q, signal }) {
   return data;
 }
 
-export async function fetchClientPreviewSite(placeId, signal) {
+export async function fetchClientPreviewSite(placeId, { siteId, signal } = {}) {
   const params = new URLSearchParams({ place_id: placeId });
+  if (siteId) params.set('site_id', siteId);
   const res = await fetch(`/api/client-preview-site?${params}`, { signal });
   const data = await res.json().catch(() => ({}));
   if (res.status === 404) return { url: null, ...data };
@@ -38,12 +39,13 @@ export async function fetchClientPreviewSite(placeId, signal) {
   return data;
 }
 
-export async function createCheckoutSession({ placeId, domain, email }) {
+export async function createCheckoutSession({ placeId, siteId, domain, email }) {
   const res = await fetch('/api/create-session', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       place_id: placeId,
+      site_id: siteId || undefined,
       domain: domain || null,
       email: email || undefined,
     }),

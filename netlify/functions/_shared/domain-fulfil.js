@@ -111,7 +111,7 @@ export async function fulfilDomainOrder(order, opts = {}) {
     }
 
     // 2. Which Netlify site (read only)
-    const site = await nf.resolveClientSite(order.placeId);
+    const site = await nf.resolveSiteForOrder(order, opts.deps || {});
     const host = nf.siteHostname(site);
     step('resolve_netlify_site', 'live_read', {
       result: { siteId: site.siteId, siteName: site.siteName, host, source: site.source, currentCustomDomain: site.customDomain },

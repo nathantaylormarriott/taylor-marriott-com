@@ -1,8 +1,9 @@
 import { handleOptions } from './_shared/http.js';
+import { buildCheckoutPreviewHtml } from './_shared/checkout-preview-build.js';
 import {
-  buildCheckoutPreviewHtml,
   normalizeCheckoutPreviewSite,
-} from './_shared/checkout-preview-build.js';
+  normalizeVerifiedPreviewSite,
+} from '../../shared/checkout-preview-site.js';
 
 export default async (request) => {
   if (request.method === 'OPTIONS') return handleOptions(request);
@@ -11,7 +12,8 @@ export default async (request) => {
   }
 
   const url = new URL(request.url);
-  const target = normalizeCheckoutPreviewSite(url.searchParams.get('url'));
+  const raw = url.searchParams.get('url');
+  const target = normalizeCheckoutPreviewSite(raw) || normalizeVerifiedPreviewSite(raw);
   if (!target) {
     return new Response('Invalid or missing url', { status: 400 });
   }

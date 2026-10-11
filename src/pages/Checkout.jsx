@@ -6,7 +6,10 @@ import checkoutConfig from '../../config/checkout.json';
 import clientPreviewSites from '../../config/client-preview-sites.json';
 import domainPricingConfig from '../../config/domain-pricing.json';
 import { domainRenewalUpfrontCopy } from '../../shared/domain-package.js';
-import { normalizeCheckoutPreviewSite } from '../../shared/checkout-preview-site.js';
+import {
+  normalizeCheckoutPreviewSite,
+  normalizeCheckoutPreviewSiteFromApi,
+} from '../../shared/checkout-preview-site.js';
 import {
   createCheckoutSession,
   fetchClientPreviewSite,
@@ -49,6 +52,7 @@ function saveStoredSelection(payload) {
 export default function Checkout() {
   const [searchParams] = useSearchParams();
   const placeId = String(searchParams.get('place_id') || '').trim();
+  const siteIdParam = String(searchParams.get('site_id') || '').trim();
   const cancelled = searchParams.get('cancelled') === '1';
   const contextBusiness = String(searchParams.get('business') || '').trim();
   const contextTrade = String(searchParams.get('trade') || '').trim();
@@ -92,8 +96,11 @@ export default function Checkout() {
       let resolved = fromQuery || fromReferrer || fromStorage;
       if (!resolved) {
         try {
-          const data = await fetchClientPreviewSite(placeId, ac.signal);
-          if (data?.url) resolved = normalizeCheckoutPreviewSite(data.url);
+          const data = await fetchClientPreviewSite(placeId, {
+            siteId: siteIdParam || undefined,
+            signal: ac.signal,
+          });
+          if (data?.url) resolved = normalizeCheckoutPreviewSiteFromApi(data.url);
         } catch (err) {
           if (err.name !== 'AbortError') {
             /* unknown client — no mockup URL */
@@ -116,7 +123,7 @@ export default function Checkout() {
     })();
 
     return () => ac.abort();
-  }, [placeId, searchParams]);
+  }, [placeId, siteIdParam, searchParams]);
 
   useEffect(() => {
     if (!placeId) return;
@@ -243,6 +250,7 @@ export default function Checkout() {
     try {
       const { url } = await createCheckoutSession({
         placeId,
+        siteId: siteIdParam || undefined,
         domain: addDomain && selectedDomain ? selectedDomain : null,
         email: email.trim() || undefined,
       });

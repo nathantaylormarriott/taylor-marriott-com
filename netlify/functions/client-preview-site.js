@@ -11,12 +11,13 @@ export default async (request) => {
 
   const url = new URL(request.url);
   const placeId = String(url.searchParams.get('place_id') || '').trim();
+  const siteId = String(url.searchParams.get('site_id') || '').trim();
   if (!placeId || !PLACE_ID_RE.test(placeId)) {
     return jsonResponse(request, { error: 'Invalid place_id' }, 400);
   }
 
   try {
-    const hit = await resolveCheckoutPreviewSiteUrl(placeId);
+    const hit = await resolveCheckoutPreviewSiteUrl(placeId, { siteId: siteId || undefined });
     if (!hit || !hit.url) {
       return jsonResponse(request, { url: null, placeId }, 404, { 'Cache-Control': 'public, max-age=300' });
     }

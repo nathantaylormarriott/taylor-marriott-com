@@ -110,14 +110,14 @@ export function buildSiteCheckoutParams(input = {}, { allowIncomplete = false, c
   }
 
   const metadata = { product_type: SITE_PRODUCT_TYPE, place_id: placeId, domain: apex };
+  if (netlifySiteId) metadata.netlify_site_id = String(netlifySiteId);
+  if (netlifySiteName) metadata.netlify_site_name = String(netlifySiteName);
   const leadDays = Number.isInteger(cfg.renewalLeadDays) ? cfg.renewalLeadDays : DEFAULT_RENEWAL_LEAD_DAYS;
   if (hasDomain) {
     metadata.renewal_lead_days = String(leadDays);
     metadata.tld = tldOf(apex);
     metadata.domain_amount_pence = String(domainAmount);
     metadata.domain_first_year_included = '1';
-    if (netlifySiteId) metadata.netlify_site_id = String(netlifySiteId);
-    if (netlifySiteName) metadata.netlify_site_name = String(netlifySiteName);
   }
 
   const lineItems = [

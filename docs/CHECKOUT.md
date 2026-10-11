@@ -1,16 +1,26 @@
 # Cold-outreach checkout (`/checkout`)
 
-Client-facing checkout for the £299 website fee and an optional yearly domain add-on. Preview sites link here with `?place_id=<Google Places id>`.
+Client-facing checkout for the £299 website fee and an optional yearly domain add-on.
+
+**Preview / generator checkout link** (bulk-websites should emit this on each site):
+
+```
+/checkout?place_id=<Google Places id>&site_id=<Netlify site UUID>&business=<name>&trade=<trade>&town=<town>
+```
+
+- `place_id` — required (Google Places id or bulk `cid-…` id).
+- `site_id` — optional but recommended for new builds (plain Netlify site name, no `tmbulk-` prefix). Server verifies the site is on the Taylor-Marriott Netlify team and that its homepage checkout link uses the same `place_id`.
+- `business`, `trade`, `town` — optional; improve domain suggestions (registry overrides when present).
 
 ## Routes
 
 | Path | Purpose |
 |------|---------|
-| `/checkout?place_id=…` | Domain search, cart, pay |
+| `/checkout?place_id=…&site_id=…` | Domain search, cart, pay (see link format above) |
 | `/checkout/done?session_id=…` | Stripe success return |
 | `GET /api/domain-search` | Normalises pasted URLs; label → `.co.uk`/`.com`/`.uk`; fixed retail price; up to 3 alternatives if taken |
 | `GET /api/domain-suggestions` | Auto-suggested domains from business/trade/town (Porkbun check, cached ~5 min) |
-| `GET /api/client-preview-site?place_id=…` | Resolve the client’s Netlify preview URL for checkout device mockups (registry → config → team scan) |
+| `GET /api/client-preview-site?place_id=…&site_id=…` | Verified preview URL for device mockups (optional `site_id` → registry → config → cached team scan) |
 | `POST /api/create-session` | Stripe Checkout Session (server recomputes amounts) |
 | `POST /api/stripe-webhook` | Signature verify, queue orders/renewals, start background jobs |
 | `POST /api/domain-fulfil` | Background: Porkbun register → DNS → Netlify custom domain |
@@ -53,7 +63,7 @@ Suggested checkout copy: *“The domain renews yearly at £X until cancelled; if
 
 Only domains whose **fixed yearly retail** is **≤ `DOMAIN_INCLUDED_MAX_GBP`** (default **£20**, config + env) are offered. Others show *Not available in this package* in search/suggestions.
 
-Subscription metadata includes `domain_first_year_included=1`, `place_id`, `domain`, `tld`, `domain_amount_pence`, and Netlify site hints when known (`client-sites.js` registry). Stripe Checkout **custom submit text** states the renewal price and date.
+Subscription metadata includes `domain_first_year_included=1`, `place_id`, `domain`, `tld`, `domain_amount_pence`, and Netlify site hints when known (`netlify_site_id` / `netlify_site_name` from verified `site_id` or registry). Stripe Checkout **custom submit text** states the renewal price and date.
 
 ## Stripe metadata
 
@@ -108,7 +118,9 @@ Checkout sends email via **SendGrid** from Netlify Functions (`netlify/functions
 
 ### Checkout device previews
 
-Mockups load the client site via `GET /api/client-preview-site?place_id=…` when `?site=` / referrer / session storage are unavailable. Resolution order matches fulfilment: `client-sites.js` registry, `config/client-preview-sites.json`, then scan of team **`tmbulk-*`** / **`tm-preview-*`** sites. Unknown clients show no iframe (neutral device frames only).
+Mockups load the client site via `GET /api/client-preview-site?place_id=…&site_id=…` when `?site=` / referrer / session storage are unavailable. Resolution order: verified **`site_id`** (if present) → `client-sites.js` registry → `config/client-preview-sites.json` → **cached scan of all team sites** (~60): homepage must link to checkout with the same `place_id` (works for plain repo-name sites, not only legacy `tmbulk-*` prefixes). Verified URLs may be `*.netlify.app` or the site’s own HTTPS domain. Unknown or unverifiable clients show no iframe (never another client’s site).
+
+Domain fulfilment resolves the Netlify site with **`netlify_site_id` from Stripe metadata first**, then the same scan fallback.
 ```
 
 - **Smart Retries / dunning**: handled by Stripe; we do not charge Porkbun until `invoice.paid` for a cycle.
