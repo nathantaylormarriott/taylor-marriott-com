@@ -25,6 +25,19 @@ export async function searchDomains({ placeId, q, signal }) {
   return data;
 }
 
+export async function fetchClientPreviewSite(placeId, signal) {
+  const params = new URLSearchParams({ place_id: placeId });
+  const res = await fetch(`/api/client-preview-site?${params}`, { signal });
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 404) return { url: null, ...data };
+  if (!res.ok) {
+    const err = new Error(data.error || 'Preview site lookup failed');
+    err.status = res.status;
+    throw err;
+  }
+  return data;
+}
+
 export async function createCheckoutSession({ placeId, domain, email }) {
   const res = await fetch('/api/create-session', {
     method: 'POST',

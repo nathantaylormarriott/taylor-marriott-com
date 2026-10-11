@@ -4,11 +4,18 @@ import { renewalFromInvoiceEvent, subscriptionDeletedFromEvent } from './_shared
 import { getOrder, putOrder, FINAL_STATUSES } from './_shared/domainOrders.js';
 import { getRenewal, putRenewal, RENEWAL_DONE_STATUSES } from './_shared/domainRenewals.js';
 import { putSubscriptionRecord, markSubscriptionLapsing, getSubscriptionRecord } from './_shared/domainSubscriptions.js';
+import { sendCheckoutPaymentEmails, sendInvoicePaymentFailedEmail, sendSubscriptionLapsingEmail, subscriptionLapsingFromUpdatedEvent } from './_shared/checkout-mail.js';
 
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
 async function handleCheckoutCompleted(event, base) {
+  try {
+    await sendCheckoutPaymentEmails(event);
+  } catch (err) {
+    console.error('[stripe-webhook] payment emails', err.message);
+  }
+
   let order;
   try {
     order = orderFromEvent(event);
@@ -131,12 +138,44 @@ async function handleSubscriptionDeleted(event) {
     console.error('[stripe-webhook] lapsing mark failed', err);
     return json({ error: 'could not mark lapsing' }, 500);
   }
+  try {
+    await sendSubscriptionLapsingEmail({ ...info, status: info.status || 'canceled' });
+  } catch (err) {
+    console.error('[stripe-webhook] lapsing email', err.message);
+  }
   return json({ received: true, lapsing: info.subscriptionId });
 }
 
+async function handleSubscriptionUpdated(event) {
+  const info = subscriptionLapsingFromUpdatedEvent(event);
+  if (!info) return json({ received: true, ignored: true });
+
+  try {
+    await markSubscriptionLapsing(info.subscriptionId, info.eventId);
+  } catch (err) {
+    console.error('[stripe-webhook] lapsing mark (updated)', err);
+    return json({ error: 'could not mark lapsing' }, 500);
+  }
+  try {
+    await sendSubscriptionLapsingEmail(info);
+  } catch (err) {
+    console.error('[stripe-webhook] lapsing email (updated)', err.message);
+  }
+  return json({ received: true, lapsing: info.subscriptionId });
+}
+
+async function handleInvoicePaymentFailed(event) {
+  try {
+    await sendInvoicePaymentFailedEmail(event);
+  } catch (err) {
+    console.error('[stripe-webhook] invoice.payment_failed email', err.message);
+  }
+  return json({ received: true });
+}
+
 /**
- * Stripe webhooks: first purchase (checkout.session.completed), yearly renewals (invoice.paid),
- * and subscription cancellation (customer.subscription.deleted).
+ * Stripe webhooks: checkout (checkout.session.completed), renewals (invoice.paid),
+ * failed payments (invoice.payment_failed), subscription lapsing (deleted / updated unpaid).
  */
 export default async (request) => {
   if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 });
@@ -161,6 +200,10 @@ export default async (request) => {
       return handleRenewalInvoice(event, base);
     case 'customer.subscription.deleted':
       return handleSubscriptionDeleted(event);
+    case 'customer.subscription.updated':
+      return handleSubscriptionUpdated(event);
+    case 'invoice.payment_failed':
+      return handleInvoicePaymentFailed(event);
     default:
       return json({ received: true, ignored: event.type });
   }
