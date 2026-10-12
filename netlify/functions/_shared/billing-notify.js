@@ -3,6 +3,7 @@
  * Default is dry-run: nothing is sent. BILLING_NOTIFY_LIVE=1 sends, and only
  * to nathan@taylor-marriott.com unless BILLING_NOTIFY_CLIENTS=1.
  */
+import { assertSmsBody } from '../../../shared/sms-gsm.js';
 
 export const NATHAN_EMAIL = 'nathan@taylor-marriott.com';
 export const TWILIO_FROM_E164 = '+447378961404';
@@ -56,6 +57,7 @@ export async function deliverNotice(notice, deps = {}, env = process.env) {
     toPhone: gated.dryRun ? notice.phone || null : gated.phone,
     redirected: gated.redirected === true,
   };
+  if (notice.sms) assertSmsBody(notice.sms);
   if (payload.dryRun) {
     return { ...payload, sentEmail: false, sentSms: false };
   }

@@ -64,6 +64,12 @@
     X-Robots-Tag = "noindex, nofollow, noarchive"
 
 [[headers]]
+  for = "/p/*"
+  [headers.values]
+    X-Robots-Tag = "noindex"
+    Cache-Control = "no-store"
+
+[[headers]]
   for = "/api/checkout-preview"
   [headers.values]
     Cache-Control = "no-store"

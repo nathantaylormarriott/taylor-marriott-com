@@ -20,6 +20,10 @@ import {
   buildReminderMessage,
   deliverNotice,
 } from './billing-notify.js';
+import { smsDunning, smsPause, smsReminder, smsResume, smsWhen } from '../../../shared/sms-templates.js';
+import { createShortLink } from './short-link.js';
+
+const DRY_SMS_LINK = 'https://taylor-marriott.com/p/dryrun01';
 
 /**
  * One billing day. Dry-run unless the caller sets dryRun false.
@@ -51,23 +55,49 @@ export async function runBillingDay(ctx) {
     if (ctx.persistDunning) await ctx.persistDunning(invoiceId, record);
   };
 
+  const payLink = async (url) => {
+    const target = typeof url === 'string' && url.startsWith('https://') ? url : 'https://billing.stripe.com';
+    if (ctx.shorten) return ctx.shorten(target);
+    if (dryRun) return DRY_SMS_LINK;
+    return createShortLink(target);
+  };
+
+  const clientSms = async (source, sms) => {
+    if (!source.phone || !sms) return null;
+    return notify({
+      email: null,
+      phone: source.phone,
+      subject: 'Taylor-Marriott',
+      text: sms,
+      sms,
+    });
+  };
+
   for (const open of ctx.openInvoices || []) {
     try {
       const current = open.dunning || emptyDunning(open.invoiceId);
       if (!canAttemptToday(current, todayKey)) {
         const pending = noticePending(current, todayKey);
         if (pending) {
+          const hosted = pending.hostedInvoiceUrl || open.hostedInvoiceUrl || 'https://billing.stripe.com';
+          const link = await payLink(hosted);
           const text = buildDunningMessage({
-            hostedInvoiceUrl: pending.hostedInvoiceUrl || open.hostedInvoiceUrl || 'https://billing.stripe.com',
+            hostedInvoiceUrl: hosted,
             attempt: pending.attempt,
             domain: open.domain,
+          });
+          const sms = smsDunning({
+            business: open.businessName,
+            domain: open.domain,
+            attempt: pending.attempt,
+            link,
           });
           const notice = await notify({
             email: open.email,
             phone: open.phone,
             subject: `Payment failed (${pending.attempt} of 10)`,
             text,
-            sms: text,
+            sms,
           });
           const dunning = markNoticeDelivered(current, todayKey);
           await persist(open.invoiceId, dunning);
@@ -110,7 +140,11 @@ export async function runBillingDay(ctx) {
           await ctx.onResume({ ...open, resume, dryRun });
         }
         log.push({ type: 'paid', invoiceId: open.invoiceId, dunning, resume, steps, dryRun });
-        if (open.wasPaused) await alert('resume', open.siteName || open.domain, `Invoice ${open.invoiceId} paid`);
+        if (open.wasPaused) {
+          await alert('resume', open.siteName || open.domain, `Invoice ${open.invoiceId} paid`);
+          const link = await payLink(hosted || open.manageUrl);
+          await clientSms(open, smsResume({ business: open.businessName, domain: open.domain, link }));
+        }
         continue;
       }
 
@@ -118,17 +152,24 @@ export async function runBillingDay(ctx) {
       steps.push(`attempt_${fail.attempt || current.attemptCount}`);
       await persist(open.invoiceId, fail.record);
       if (fail.notified) {
+        const link = await payLink(hosted || 'https://billing.stripe.com');
         const text = buildDunningMessage({
           hostedInvoiceUrl: hosted || 'https://billing.stripe.com',
           attempt: fail.attempt,
           domain: open.domain,
+        });
+        const sms = smsDunning({
+          business: open.businessName,
+          domain: open.domain,
+          attempt: fail.attempt,
+          link,
         });
         const notice = await notify({
           email: open.email,
           phone: open.phone,
           subject: `Payment failed (${fail.attempt} of 10)`,
           text,
-          sms: text,
+          sms,
         });
         const delivered = markNoticeDelivered(fail.record, todayKey);
         await persist(open.invoiceId, delivered);
@@ -149,6 +190,8 @@ export async function runBillingDay(ctx) {
         log.push({ type: 'unpaid_final', invoiceId: open.invoiceId, plan: open.plan, pause, steps, dryRun });
         if (ctx.onPause) await ctx.onPause({ ...open, pause, dryRun });
         await alert('pause', open.siteName || open.domain, `Invoice ${open.invoiceId} unpaid after 10 days`);
+        const pauseLink = await payLink(hosted || 'https://billing.stripe.com');
+        await clientSms(open, smsPause({ business: open.businessName, domain: open.domain, link: pauseLink }));
       }
     } catch (err) {
       log.push({ type: 'failure', invoiceId: open.invoiceId, message: err.message, steps: ['error'] });
@@ -171,12 +214,16 @@ export async function runBillingDay(ctx) {
         log.push({ type: 'reconcile_pause', accountId: account.id, ...drift, steps, dryRun });
         if (ctx.onPause) await ctx.onPause({ ...account, pause: drift, dryRun });
         await alert('pause', account.siteName || account.domain, `Subscription ${account.id} is ${account.stripeStatus}`);
+        const pauseLink = await payLink(account.hostedInvoiceUrl || account.manageUrl);
+        await clientSms(account, smsPause({ business: account.businessName, domain: account.domain, link: pauseLink }));
       } else if (drift.action === 'resume') {
         const resume = resumePlan(account.resume || {});
         steps.push('resume');
         log.push({ type: 'reconcile_resume', accountId: account.id, resume, steps, dryRun });
         if (ctx.onResume) await ctx.onResume({ ...account, resume, dryRun });
         await alert('resume', account.siteName || account.domain, `Subscription ${account.id} is active`);
+        const resumeLink = await payLink(account.manageUrl || account.hostedInvoiceUrl);
+        await clientSms(account, smsResume({ business: account.businessName, domain: account.domain, link: resumeLink }));
       }
 
       if (account.plan === 'one_off' && account.renewalAt) {
@@ -188,18 +235,28 @@ export async function runBillingDay(ctx) {
             manageUrl = (await ctx.stripe.portalUrl(account.customerId)) || '';
             steps.push('portal');
           }
+          const link = await payLink(manageUrl);
+          const whenLabel = smsWhen(account.renewalAt);
           const text = buildReminderMessage({
-            whenLabel: londonDateKey(account.renewalAt),
+            whenLabel,
             priceLabel: account.priceLabel || '',
-            manageUrl,
+            manageUrl: link,
             domain: account.domain,
+          });
+          const sms = smsReminder({
+            business: account.businessName,
+            domain: account.domain,
+            days: day,
+            whenLabel,
+            priceLabel: account.priceLabel || '',
+            link,
           });
           const notice = await notify({
             email: account.email,
             phone: account.phone,
             subject: `Domain renewal in ${day} days`,
             text,
-            sms: text,
+            sms,
           });
           sent = [...sent, day];
           log.push({

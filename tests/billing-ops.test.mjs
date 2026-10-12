@@ -48,6 +48,8 @@ test('10 failed billing days send email and SMS every day, then pause', async ()
     assert.equal(fail.sms, true);
     assert.equal(fail.attempt, i + 1);
     assert.match(fail.notice.text, /Pay here: https:\/\/pay\.example\/in_ops/);
+    assert.match(fail.notice.sms, /https:\/\/taylor-marriott.com\/p\/dryrun01/);
+    assert.ok(fail.notice.sms.length <= 159);
     assert.equal(fail.notice.dryRun, true);
     assert.equal(fail.notice.sentSms, false);
     dunning = fail.record;

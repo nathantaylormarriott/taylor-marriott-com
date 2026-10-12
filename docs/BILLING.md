@@ -13,9 +13,11 @@
 
 30, 14 and 7 days before the renewal date: SMS from +44 7378 961404 and email from nathan@taylor-marriott.com. Each message has the date, the price, and a manage or update-card link.
 
+Every SMS is GSM-7 and at most 159 septets, including the link. Stripe invoice and portal URLs are stored in the `billing-short-links` blob and sent as `https://taylor-marriott.com/p/<8 chars>`, which redirects with HTTP 302. `sendBillingSms` refuses anything longer or not GSM-7 before Twilio is called. Pause and resume texts use the same rule. Nathan's alert mail is email only.
+
 ## Failed payments
 
-Our job retries once per London day, up to 10 days. After every failed attempt the client gets an email and an SMS with the hosted invoice link. After the 10th failure the invoice is marked uncollectible and the subscription is treated as unpaid.
+Our job retries once per London day, up to 10 days. After every failed attempt the client gets an email and an SMS with the pay link. After the 10th failure the invoice is marked uncollectible and the subscription is treated as unpaid. The pause text goes out as well on that day. A later payment sends the resume text.
 
 A single `invoice.payment_failed` event does not pause the site and does not count as one of the 10 attempts. The webhook only stores the open invoice. Pause follows the final Stripe status (`unpaid` or `canceled`) or our 10th daily failure. The daily job is what charges the card again, then sends the email and the SMS.
 
