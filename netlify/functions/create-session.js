@@ -6,7 +6,7 @@ import {
   assertPorkbunWithinClientPrice,
 } from './_shared/domain-pricing.js';
 import { normalizePlan } from '../../shared/billing-plans.js';
-import { CLIENT_SITES } from './_shared/client-sites.js';
+import { resolveNetlifyHintsForCheckout } from './_shared/checkout-netlify-hints.js';
 import { checkDomain, getTldPricing, normalizeDomain } from './_shared/porkbun-client.js';
 import {
   checkToAvailabilityState,
@@ -47,6 +47,7 @@ export default async (request) => {
   }
 
   const placeId = String(body.place_id || '').trim();
+  const siteIdRaw = body.site_id == null || body.site_id === '' ? '' : String(body.site_id).trim();
   const emailRaw = body.email == null || body.email === '' ? '' : String(body.email).trim();
   const domainRaw = body.domain == null || body.domain === '' ? null : String(body.domain).trim();
   const plan = normalizePlan(body.plan);
@@ -120,9 +121,28 @@ export default async (request) => {
   const successUrl = `${checkoutBase}/done?session_id={CHECKOUT_SESSION_ID}`;
   const cancelUrl = `${checkoutBase}?place_id=${encodeURIComponent(placeId)}&cancelled=1`;
 
+  let netlifyHints = {};
+  try {
+    netlifyHints = await resolveNetlifyHintsForCheckout(placeId, siteIdRaw);
+  } catch (err) {
+    if (err.code === 'BAD_SITE_ID') {
+      return jsonResponse(request, { error: 'Invalid site_id' }, 400);
+    }
+    if (err.code === 'WRONG_TEAM') {
+      return jsonResponse(request, { error: 'site_not_on_team' }, 403);
+    }
+    if (err.code === 'PLACE_MISMATCH') {
+      return jsonResponse(request, { error: 'site_place_mismatch' }, 403);
+    }
+    if (err.code === 'NO_NETLIFY_TOKEN') {
+      return jsonResponse(request, { error: 'Site verification not configured' }, 503);
+    }
+    console.error('[create-session] site verify', err);
+    return jsonResponse(request, { error: 'Could not verify site' }, 502);
+  }
+
   try {
     const idempotencyKey = siteCheckoutIdempotencyKey(placeId, domain, plan);
-    const siteHit = CLIENT_SITES[placeId];
     const result = await createSiteCheckoutSession(
       {
         placeId,
@@ -133,8 +153,8 @@ export default async (request) => {
         phone: phoneRaw || undefined,
         successUrl,
         cancelUrl,
-        netlifySiteId: siteHit && siteHit.siteId,
-        netlifySiteName: siteHit && siteHit.siteName,
+        netlifySiteId: netlifyHints.netlifySiteId,
+        netlifySiteName: netlifyHints.netlifySiteName,
       },
       { idempotencyKey, config },
     );

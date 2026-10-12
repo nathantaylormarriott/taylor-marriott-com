@@ -15,8 +15,16 @@ import {
   monthlyDomainCopy,
   oneOffRenewalCopy,
 } from '../../shared/billing-plans.js';
-import { normalizeCheckoutPreviewSite } from '../../shared/checkout-preview-site.js';
-import { createCheckoutSession, fetchDomainSuggestions, searchDomains } from '../lib/checkoutApi';
+import {
+  normalizeCheckoutPreviewSite,
+  normalizeCheckoutPreviewSiteFromApi,
+} from '../../shared/checkout-preview-site.js';
+import {
+  createCheckoutSession,
+  fetchClientPreviewSite,
+  fetchDomainSuggestions,
+  searchDomains,
+} from '../lib/checkoutApi';
 import CheckoutDeviceScreen from '../components/CheckoutDeviceScreen';
 import { useShell } from '../layout/Shell';
 import { fadePageChromeIn, primeIncomingRoutePage, revealPageChromeInstant } from '../lib/pageTransition';
@@ -53,6 +61,7 @@ function saveStoredSelection(payload) {
 export default function Checkout() {
   const [searchParams] = useSearchParams();
   const placeId = String(searchParams.get('place_id') || '').trim();
+  const siteIdParam = String(searchParams.get('site_id') || '').trim();
   const cancelled = searchParams.get('cancelled') === '1';
   const contextBusiness = String(searchParams.get('business') || '').trim();
   const contextTrade = String(searchParams.get('trade') || '').trim();
@@ -83,26 +92,50 @@ export default function Checkout() {
   const siteDisplay = useMemo(() => formatGbp(SITE_PENCE), []);
 
   useEffect(() => {
-    if (!placeId) return;
+    if (!placeId) return undefined;
+    const ac = new AbortController();
     const storageKey = `${SITE_URL_STORAGE_PREFIX}${placeId}`;
-    const fromQuery = normalizeCheckoutPreviewSite(searchParams.get('site'));
-    const fromReferrer = normalizeCheckoutPreviewSite(document.referrer);
-    let fromStorage = '';
-    try {
-      fromStorage = normalizeCheckoutPreviewSite(sessionStorage.getItem(storageKey));
-    } catch {
-      fromStorage = '';
-    }
-    const fallback = normalizeCheckoutPreviewSite(clientPreviewSites[placeId] || '');
-    const resolved = fromQuery || fromReferrer || fromStorage || fallback;
-    if (!resolved) return;
-    try {
-      sessionStorage.setItem(storageKey, resolved);
-    } catch {
-      /* ignore */
-    }
-    setSiteUrl(resolved);
-  }, [placeId, searchParams]);
+
+    (async () => {
+      const fromQuery = normalizeCheckoutPreviewSite(searchParams.get('site'));
+      const fromReferrer = normalizeCheckoutPreviewSite(document.referrer);
+      let fromStorage = '';
+      try {
+        fromStorage = normalizeCheckoutPreviewSite(sessionStorage.getItem(storageKey));
+      } catch {
+        fromStorage = '';
+      }
+      let resolved = fromQuery || fromReferrer || fromStorage;
+      if (!resolved) {
+        try {
+          const data = await fetchClientPreviewSite(placeId, {
+            siteId: siteIdParam || undefined,
+            signal: ac.signal,
+          });
+          if (data?.url) resolved = normalizeCheckoutPreviewSiteFromApi(data.url);
+        } catch (err) {
+          if (err.name !== 'AbortError') {
+            /* unknown client — no mockup URL */
+          }
+        }
+      }
+      if (!resolved) {
+        resolved = normalizeCheckoutPreviewSite(clientPreviewSites[placeId] || '');
+      }
+      if (!resolved) {
+        setSiteUrl('');
+        return;
+      }
+      try {
+        sessionStorage.setItem(storageKey, resolved);
+      } catch {
+        /* ignore */
+      }
+      setSiteUrl(resolved);
+    })();
+
+    return () => ac.abort();
+  }, [placeId, siteIdParam, searchParams]);
 
   useEffect(() => {
     if (!placeId) return;
@@ -234,6 +267,7 @@ export default function Checkout() {
       }
       const { url } = await createCheckoutSession({
         placeId,
+        siteId: siteIdParam || undefined,
         domain: addDomain && selectedDomain ? selectedDomain : null,
         email: email.trim() || undefined,
         plan,

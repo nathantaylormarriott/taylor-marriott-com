@@ -5,7 +5,7 @@ import { listSiteCheckoutPage, markInvoiceUncollectible, payInvoice, createPorta
 import { writeClientPauseSwitch } from './_shared/billing-actions.js';
 import { netlifyApi } from './_shared/netlify-sites.js';
 import { fulfilDomainRenewal } from './_shared/domain-renew.js';
-import { sendBillingEmail } from './_shared/billing-gmail.js';
+import { sendMail } from './_shared/mailer.js';
 import { sendBillingSms } from './_shared/billing-sms.js';
 import { envFlag, readEnv } from './_shared/billing-env.js';
 
@@ -43,7 +43,7 @@ function stripeClient() {
 function notifyDeps() {
   if (!envFlag('BILLING_NOTIFY_LIVE')) return {};
   return {
-    sendEmail: (msg) => sendBillingEmail({ ...msg, env: process.env }),
+    sendEmail: (msg) => sendMail(msg, { env: process.env }),
     sendSms: (msg) => sendBillingSms({ to: msg.to, body: msg.body, env: process.env }),
   };
 }

@@ -53,6 +53,10 @@ function fakes({ available = true, price = '5.66', premium = false } = {}) {
   };
   const netlify = {
     resolveClientSite: async () => (calls.push(['resolve']), SITE),
+    resolveSiteForOrder: async (order) => {
+      calls.push(['resolveSiteForOrder', order.netlifySiteId || null]);
+      return SITE;
+    },
     netlifyApi: async (p, o) => (calls.push(['netlify', o.method, p, o.body]), { custom_domain: 'acmebuilders.co.uk' }),
   };
   return { calls, deps: { porkbun, netlify } };
@@ -126,6 +130,14 @@ test('refuses taken, premium, and price jumps above what the client paid', async
   }
 });
 
+test('fulfilment prefers netlify_site_id metadata over place scan', async () => {
+  const { calls, deps } = fakes();
+  const order = orderFromEvent(event({ livemode: true }));
+  order.netlifySiteId = 'meta-site-uuid';
+  await fulfilDomainOrder(order, { usdToGbp: 0.79, deps });
+  assert.ok(calls.some((c) => c[0] === 'resolveSiteForOrder' && c[1] === 'meta-site-uuid'));
+});
+
 test('retry after a real registration skips registering again', async () => {
   const { calls, deps } = fakes();
   const r = await fulfilDomainOrder(orderFromEvent(event({ livemode: true })), {
@@ -137,7 +149,7 @@ test('retry after a real registration skips registering again', async () => {
 
 test('refuses a site that already has a different custom domain', async () => {
   const { deps } = fakes();
-  deps.netlify.resolveClientSite = async () => ({ ...SITE, customDomain: 'other.com' });
+  deps.netlify.resolveSiteForOrder = async () => ({ ...SITE, customDomain: 'other.com' });
   const r = await fulfilDomainOrder(orderFromEvent(event({ livemode: true })), { purchaseLive: true, usdToGbp: 0.79, deps });
   assert.equal(r.error.code, 'SITE_HAS_OTHER_DOMAIN');
 });

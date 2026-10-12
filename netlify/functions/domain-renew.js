@@ -2,6 +2,7 @@ import { fulfilDomainRenewal, switchesFromEnv } from './_shared/domain-renew.js'
 import { getRenewal, putRenewal, RENEWAL_DONE_STATUSES } from './_shared/domainRenewals.js';
 import { getSubscriptionRecord } from './_shared/domainSubscriptions.js';
 import { loadCheckoutConfigWithFx } from './_shared/checkout-config-async.js';
+import { sendDomainRenewFailureEmail } from './_shared/checkout-mail.js';
 
 /**
  * Background job: Porkbun renew for one paid subscription_cycle invoice (idempotent per invoice id).
@@ -45,6 +46,11 @@ export default async (request) => {
   });
   if (status === 'error') {
     console.error('[domain-renew] FAILED', invoiceId, record.job.domain, JSON.stringify(result.error));
+    try {
+      await sendDomainRenewFailureEmail(record.job, result);
+    } catch (err) {
+      console.error('[domain-renew] alert email', err.message);
+    }
   } else {
     console.info('[domain-renew]', invoiceId, record.job.domain, status);
   }

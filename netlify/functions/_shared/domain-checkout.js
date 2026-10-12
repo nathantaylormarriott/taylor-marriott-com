@@ -117,6 +117,8 @@ export function buildSiteCheckoutParams(input = {}, { allowIncomplete = false, c
 
   const metadata = { product_type: SITE_PRODUCT_TYPE, place_id: placeId, domain: apex, plan };
   if (phone) metadata.phone = String(phone);
+  if (netlifySiteId) metadata.netlify_site_id = String(netlifySiteId);
+  if (netlifySiteName) metadata.netlify_site_name = String(netlifySiteName);
   const leadDays = Number.isInteger(cfg.renewalLeadDays) ? cfg.renewalLeadDays : DEFAULT_RENEWAL_LEAD_DAYS;
   if (hasDomain) {
     metadata.renewal_lead_days = String(leadDays);
@@ -124,8 +126,6 @@ export function buildSiteCheckoutParams(input = {}, { allowIncomplete = false, c
     metadata.domain_amount_pence = String(domainAmount);
     metadata.domain_excess_pence = String(excess);
     metadata.domain_first_year_included = plan === PLAN_MONTHLY ? '0' : '1';
-    if (netlifySiteId) metadata.netlify_site_id = String(netlifySiteId);
-    if (netlifySiteName) metadata.netlify_site_name = String(netlifySiteName);
   }
 
   const lineItems = [

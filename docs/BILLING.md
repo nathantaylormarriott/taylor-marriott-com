@@ -51,6 +51,6 @@ Do this in live mode. This repo does not change the dashboard.
 
 ## Env vars
 
-See `.env.example`. New names: `BILLING_ACTIONS_LIVE`, `BILLING_NOTIFY_LIVE`, `BILLING_NOTIFY_CLIENTS`, `BILLING_CRON_SECRET`, `GMAIL_SEND_AS`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`.
+See `.env.example`. Billing flags: `BILLING_ACTIONS_LIVE`, `BILLING_NOTIFY_LIVE`, `BILLING_NOTIFY_CLIENTS`, `BILLING_CRON_SECRET`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`.
 
-Gmail uses the existing Google OAuth client. The refresh token needs the `https://www.googleapis.com/auth/gmail.send` scope. The calendar token may not include it yet.
+Billing email uses the checkout Gmail mailer (`netlify/functions/_shared/mailer.js`). Set `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, and `GOOGLE_GMAIL_REFRESH_TOKEN` (falls back to `GOOGLE_OAUTH_REFRESH_TOKEN`). The refresh token needs the `https://www.googleapis.com/auth/gmail.send` scope. The calendar token may not include it yet. From address is `CHECKOUT_FROM_EMAIL` (default nathan@taylor-marriott.com). Run `node scripts/google-oauth-gmail-refresh-token.mjs`.

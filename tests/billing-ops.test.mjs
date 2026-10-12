@@ -9,7 +9,7 @@ import { reconcileBillingPages } from '../netlify/functions/_shared/billing-reco
 import { paymentFailedFromEvent } from '../netlify/functions/_shared/billing-events.js';
 import { listSiteCheckoutPage, payInvoice } from '../netlify/functions/_shared/billing-stripe.js';
 import { applySiteChange } from '../netlify/functions/_shared/billing-actions.js';
-import { buildRawEmail } from '../netlify/functions/_shared/billing-gmail.js';
+import { buildRawEmail } from '../netlify/functions/_shared/mailer.js';
 import { memoryStore, setBillingStoresForTests } from '../netlify/functions/_shared/billing-store.js';
 
 function sign(body) {
@@ -310,12 +310,18 @@ test('stripe list retries a 500 and a card decline is a failed attempt, not a th
 });
 
 test('gmail raw message is addressed to the recipient and is not sent', () => {
-  const raw = buildRawEmail({
-    from: 'nathan@taylor-marriott.com',
-    to: 'nathan@taylor-marriott.com',
-    subject: 'Domain renewal in 30 days',
-    text: 'Manage or update your card: https://billing.stripe.com/p/session',
-  });
+  const raw = buildRawEmail(
+    {
+      to: 'nathan@taylor-marriott.com',
+      subject: 'Domain renewal in 30 days',
+      text: 'Manage or update your card: https://billing.stripe.com/p/session',
+    },
+    {
+      fromEmail: 'nathan@taylor-marriott.com',
+      fromName: '',
+      replyTo: 'nathan@taylor-marriott.com',
+    },
+  );
   const text = Buffer.from(raw, 'base64url').toString('utf8');
   assert.match(text, /From: nathan@taylor-marriott.com/);
   assert.match(text, /To: nathan@taylor-marriott.com/);

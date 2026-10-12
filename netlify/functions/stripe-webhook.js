@@ -10,6 +10,7 @@ import { emptyDunning, isTerminalUnpaidStatus, reconcileDrift } from '../../shar
 import { applySiteChange, writeClientPauseSwitch } from './_shared/billing-actions.js';
 import { envFlag, readEnv } from './_shared/billing-env.js';
 import { netlifyApi } from './_shared/netlify-sites.js';
+import { sendCheckoutPaymentEmails, sendInvoicePaymentFailedEmail, sendSubscriptionLapsingEmail, subscriptionLapsingFromUpdatedEvent } from './_shared/checkout-mail.js';
 
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
@@ -35,6 +36,11 @@ async function rememberCheckoutAccount(event) {
 }
 
 async function handlePaymentFailed(event) {
+  try {
+    await sendInvoicePaymentFailedEmail(event);
+  } catch (err) {
+    console.error('[stripe-webhook] invoice.payment_failed email', err.message);
+  }
   const info = paymentFailedFromEvent(event);
   if (!info) return json({ received: true, ignored: true });
   const existing = (await getDunning(info.invoiceId)) || emptyDunning(info.invoiceId);
@@ -110,6 +116,12 @@ async function handleCheckoutCompleted(event, base) {
     console.error('[stripe-webhook] billing account', err);
     return json({ error: 'could not store billing account' }, 500);
   }
+  try {
+    await sendCheckoutPaymentEmails(event);
+  } catch (err) {
+    console.error('[stripe-webhook] payment emails', err.message);
+  }
+
   let order;
   try {
     order = orderFromEvent(event);
@@ -233,12 +245,38 @@ async function handleSubscriptionDeleted(event) {
     console.error('[stripe-webhook] lapsing mark failed', err);
     return json({ error: 'could not mark lapsing' }, 500);
   }
+  try {
+    await sendSubscriptionLapsingEmail({ ...info, status: info.status || 'canceled' });
+  } catch (err) {
+    console.error('[stripe-webhook] lapsing email', err.message);
+  }
   return json({ received: true, lapsing: info.subscriptionId });
 }
 
+async function handleSubscriptionUpdated(event) {
+  const status = await rememberSubscriptionStatus(event);
+  const info = subscriptionLapsingFromUpdatedEvent(event);
+  if (info) {
+    try {
+      await markSubscriptionLapsing(info.subscriptionId, info.eventId);
+    } catch (err) {
+      console.error('[stripe-webhook] lapsing mark (updated)', err);
+      return json({ error: 'could not mark lapsing' }, 500);
+    }
+    try {
+      await sendSubscriptionLapsingEmail(info);
+    } catch (err) {
+      console.error('[stripe-webhook] lapsing email (updated)', err.message);
+    }
+    return json({ received: true, lapsing: info.subscriptionId, ...(status || {}) });
+  }
+  if (!status) return json({ received: true, ignored: true });
+  return json({ received: true, ...status });
+}
+
 /**
- * Stripe webhooks: first purchase (checkout.session.completed), yearly renewals (invoice.paid),
- * and subscription cancellation (customer.subscription.deleted).
+ * Stripe webhooks: checkout (checkout.session.completed), renewals (invoice.paid),
+ * failed payments (invoice.payment_failed), subscription lapsing (deleted / updated unpaid).
  */
 export default async (request) => {
   if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 });
@@ -263,11 +301,8 @@ export default async (request) => {
       return handleRenewalInvoice(event, base);
     case 'invoice.payment_failed':
       return handlePaymentFailed(event);
-    case 'customer.subscription.updated': {
-      const status = await rememberSubscriptionStatus(event);
-      if (!status) return json({ received: true, ignored: true });
-      return json({ received: true, ...status });
-    }
+    case 'customer.subscription.updated':
+      return handleSubscriptionUpdated(event);
     case 'customer.subscription.deleted':
       return handleSubscriptionDeleted(event);
     default:
