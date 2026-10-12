@@ -32,6 +32,7 @@ export function renewalFromInvoiceEvent(event) {
 
   const m = subscriptionMetadataFromInvoice(inv);
   if (m.product_type !== SITE_PRODUCT_TYPE) return null;
+  if (m.plan === 'monthly') return null;
   const domain = String(m.domain || '').trim();
   if (!domain) return null;
 

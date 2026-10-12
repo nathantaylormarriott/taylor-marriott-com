@@ -39,7 +39,7 @@ export async function fetchClientPreviewSite(placeId, { siteId, signal } = {}) {
   return data;
 }
 
-export async function createCheckoutSession({ placeId, siteId, domain, email }) {
+export async function createCheckoutSession({ placeId, siteId, domain, email, plan, phone, termsAccepted }) {
   const res = await fetch('/api/create-session', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -48,6 +48,9 @@ export async function createCheckoutSession({ placeId, siteId, domain, email }) 
       site_id: siteId || undefined,
       domain: domain || null,
       email: email || undefined,
+      plan: plan || 'one_off',
+      phone: phone || undefined,
+      terms_accepted: termsAccepted === true,
     }),
   });
   const data = await res.json().catch(() => ({}));

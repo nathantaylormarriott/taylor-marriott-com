@@ -4,8 +4,17 @@ import GlassButton from '../components/GlassButton';
 import GlassField from '../components/GlassField';
 import checkoutConfig from '../../config/checkout.json';
 import clientPreviewSites from '../../config/client-preview-sites.json';
-import domainPricingConfig from '../../config/domain-pricing.json';
 import { domainRenewalUpfrontCopy } from '../../shared/domain-package.js';
+import {
+  PLAN_MONTHLY,
+  PLAN_ONE_OFF,
+  allowanceForPlan,
+  domainExcessPence,
+  firstInvoicePence,
+  formatGbpPence,
+  monthlyDomainCopy,
+  oneOffRenewalCopy,
+} from '../../shared/billing-plans.js';
 import {
   normalizeCheckoutPreviewSite,
   normalizeCheckoutPreviewSiteFromApi,
@@ -76,6 +85,9 @@ export default function Checkout() {
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [suggestionsError, setSuggestionsError] = useState('');
   const [siteUrl, setSiteUrl] = useState('');
+  const [plan, setPlan] = useState(PLAN_ONE_OFF);
+  const [phone, setPhone] = useState('');
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   const siteDisplay = useMemo(() => formatGbp(SITE_PENCE), []);
 
@@ -248,11 +260,19 @@ export default function Checkout() {
     setPayError('');
     setPaying(true);
     try {
+      if (!termsAccepted) {
+        setPayError('Tick the Terms and Privacy box to continue.');
+        setPaying(false);
+        return;
+      }
       const { url } = await createCheckoutSession({
         placeId,
         siteId: siteIdParam || undefined,
         domain: addDomain && selectedDomain ? selectedDomain : null,
         email: email.trim() || undefined,
+        plan,
+        phone: phone.trim() || undefined,
+        termsAccepted: true,
       });
       if (url) window.location.assign(url);
       else setPayError('No checkout URL returned');
@@ -264,10 +284,24 @@ export default function Checkout() {
   };
 
   const selectedRenewalCopy =
-    addDomain && selectedPricePence != null ? domainRenewalUpfrontCopy(selectedPricePence) : null;
+    addDomain && selectedPricePence != null
+      ? plan === PLAN_MONTHLY
+        ? monthlyDomainCopy(selectedPricePence)
+        : oneOffRenewalCopy(selectedPricePence, domainRenewalUpfrontCopy(selectedPricePence)?.match(/from ([^,]+)/)?.[1])
+      : null;
 
-  const payTodayDisplay =
-    addDomain && selectedDomain ? siteDisplay : addDomain ? null : siteDisplay;
+  const payTodayPence =
+    addDomain && selectedDomain
+      ? firstInvoicePence(plan, selectedPricePence)
+      : firstInvoicePence(plan, 0);
+  const payTodayDisplay = formatGbpPence(payTodayPence);
+
+  const priceNote = (pence) => {
+    if (pence == null) return '';
+    const excess = domainExcessPence(pence, allowanceForPlan(plan));
+    if (excess === 0) return plan === PLAN_MONTHLY ? 'Included in £39' : 'Year 1 included';
+    return `${formatGbpPence(excess)} extra today`;
+  };
 
   if (!placeId) {
     return (
@@ -294,18 +328,11 @@ export default function Checkout() {
         <header className="checkout-header">
           <h1 className="checkout-title">Complete your website</h1>
           <p className="checkout-lead">
-            One payment for your live site (£{checkoutConfig.siteAmountPence / 100}).
-            {domainPricingConfig.includedMaxYearlyGbp != null ? (
-              <>
-                {' '}
-                Domains up to £{domainPricingConfig.includedMaxYearlyGbp}/year include year one in that
-                price; renewal is billed yearly after that.
-              </>
-            ) : null}
+            £299 one-off, or £39/month with no minimum term. Cancel anytime.
           </p>
           {cancelled ? (
             <p className="checkout-banner" role="status">
-              Payment cancelled — nothing was charged. Your selections are kept below.
+              Payment cancelled. Nothing was charged. Your selections are kept below.
             </p>
           ) : null}
         </header>
@@ -388,7 +415,7 @@ export default function Checkout() {
                           onClick={() => onSuggestionChip(row)}
                         >
                           <span className="checkout-suggest-chip__domain">{row.domain}</span>
-                          <span className="checkout-suggest-chip__price">Year 1 included</span>
+                          <span className="checkout-suggest-chip__price">{priceNote(row.clientPricePence)}</span>
                         </button>
                       );
                     })}
@@ -405,7 +432,7 @@ export default function Checkout() {
               <div className="checkout-search">
                 <GlassField
                   id="checkout-domain-search"
-                  label="Domain name (or paste a full address — we check .co.uk, .com and .uk)"
+                  label="Domain name (or paste a full address. We check .co.uk, .com and .uk)"
                   name="domain_search"
                   value={searchLabel}
                   onChange={(e) => {
@@ -466,15 +493,14 @@ export default function Checkout() {
                   if (row.state === 'taken') statusLabel = 'Taken';
                   else if (row.state === 'premium') statusLabel = 'Not available';
                   else if (row.state === 'unresolved' || row.state === 'invalid') statusLabel = 'Try again';
-                  else if (row.state === 'package_excluded') statusLabel = row.clientPriceDisplay || 'Not available in this package';
-                  else if (row.state === 'available') statusLabel = 'Included year 1';
+                  else if (row.state === 'available') statusLabel = priceNote(row.clientPricePence);
 
                   return (
                     <li
                       key={row.domain}
                       className={[
                         'checkout-result',
-                        row.state === 'taken' || row.state === 'premium' || row.state === 'package_excluded'
+                        row.state === 'taken' || row.state === 'premium'
                           ? 'checkout-result--muted'
                           : '',
                         row.state === 'taken' ? 'checkout-result--struck' : '',
@@ -510,42 +536,95 @@ export default function Checkout() {
           ) : null}
         </section>
 
+        <section className="checkout-card checkout-plans" aria-labelledby="checkout-plans">
+          <h2 id="checkout-plans" className="checkout-section-title">
+            How you pay
+          </h2>
+          <div className="checkout-plan-list">
+            <label className={`checkout-plan${plan === PLAN_ONE_OFF ? ' checkout-plan--selected' : ''}`}>
+              <input
+                type="radio"
+                name="plan"
+                checked={plan === PLAN_ONE_OFF}
+                onChange={() => setPlan(PLAN_ONE_OFF)}
+              />
+              <span className="checkout-plan__headline">£299 one-off</span>
+              <span className="checkout-plan__detail">
+                Includes the first year of a domain up to £20. Anything above £20 is added today.
+                Then the domain renews yearly at the price shown.
+              </span>
+            </label>
+            <label className={`checkout-plan checkout-plan--secondary${plan === PLAN_MONTHLY ? ' checkout-plan--selected' : ''}`}>
+              <input
+                type="radio"
+                name="plan"
+                checked={plan === PLAN_MONTHLY}
+                onChange={() => setPlan(PLAN_MONTHLY)}
+              />
+              <span className="checkout-plan__headline">or £39/month, no minimum term, cancel anytime</span>
+              <span className="checkout-plan__detail">
+                The first £39 covers a domain up to £39. Anything above that is added to the first invoice.
+                Later renewals are included in that month's £39, with no separate domain charge.
+              </span>
+            </label>
+          </div>
+        </section>
+
         <section className="checkout-card checkout-summary" aria-labelledby="checkout-summary">
           <h2 id="checkout-summary" className="checkout-section-title">
             Summary
           </h2>
           <p className="checkout-line">
             <span>Website</span>
-            <strong>{siteDisplay} one-time</strong>
+            <strong>{plan === PLAN_MONTHLY ? '£39.00 / month' : `${siteDisplay} one-time`}</strong>
           </p>
           {addDomain && selectedDomain ? (
             <>
               <p className="checkout-line">
                 <span>Domain: {selectedDomain}</span>
-                <strong>Included (year 1)</strong>
+                <strong>{priceNote(selectedPricePence)}</strong>
               </p>
               {selectedRenewalCopy ? (
-                <p className="checkout-line checkout-line--renewal">
-                  <span>After year 1</span>
-                  <strong>{selectedRenewalCopy.replace(/^First year included\. Then /, '')}</strong>
+                <p className="checkout-renewal-upfront" role="status">
+                  {selectedRenewalCopy}
                 </p>
               ) : null}
             </>
           ) : null}
-          {addDomain && selectedDomain && payTodayDisplay ? (
-            <p className="checkout-line checkout-line--total">
-              <span>Pay today</span>
-              <strong>{payTodayDisplay}</strong>
-            </p>
-          ) : null}
-          {addDomain && !selectedDomain ? (
+          <p className="checkout-line checkout-line--total">
+            <span>{plan === PLAN_MONTHLY ? 'First invoice' : 'Pay today'}</span>
+            <strong>{payTodayDisplay}</strong>
+          </p>
+          <p className="checkout-fineprint">
+            The domain is registered for your site. If a renewal is not paid, the domain can lapse and
+            the custom address is removed.
+          </p>
+          {plan === PLAN_MONTHLY ? (
             <p className="checkout-fineprint">
-              Choose a domain above — year one is included when the yearly price is £
-              {domainPricingConfig.includedMaxYearlyGbp ?? 20} or less.
+              Cancel anytime. If a payment stays unpaid, the site is paused until you pay. We retry
+              once a day for 10 days and text you a pay link each time.
             </p>
+          ) : (
+            <p className="checkout-fineprint">
+              We text and email 30, 14 and 7 days before a domain renewal, then charge the card on file.
+            </p>
+          )}
+          {addDomain && !selectedDomain ? (
+            <p className="checkout-fineprint">Choose a domain above, or continue with the website only.</p>
           ) : null}
 
           <div className="checkout-email">
+            <GlassField
+              id="checkout-phone"
+              label="Mobile for payment texts (optional)"
+              name="phone"
+              type="tel"
+              autoComplete="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              liquid={false}
+              sceneBlur={false}
+            />
             <GlassField
               id="checkout-email"
               label="Email (optional, for Stripe receipt)"
@@ -559,6 +638,17 @@ export default function Checkout() {
             />
           </div>
 
+          <label className="checkout-terms">
+            <input
+              type="checkbox"
+              checked={termsAccepted}
+              onChange={(e) => setTermsAccepted(e.target.checked)}
+            />
+            <span>
+              I agree to the <Link to="/terms">Terms</Link> and <Link to="/privacy">Privacy policy</Link>.
+            </span>
+          </label>
+
           {payError ? (
             <p className="checkout-error" role="alert">
               {payError}
@@ -568,7 +658,7 @@ export default function Checkout() {
           <GlassButton
             type="button"
             className="checkout-pay-btn"
-            disabled={paying || (addDomain && !selectedDomain)}
+            disabled={paying || (addDomain && !selectedDomain) || !termsAccepted}
             onClick={onPay}
           >
             {paying ? 'Redirecting…' : 'Pay securely with Stripe'}

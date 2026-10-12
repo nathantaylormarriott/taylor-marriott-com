@@ -4,12 +4,118 @@ import { renewalFromInvoiceEvent, subscriptionDeletedFromEvent } from './_shared
 import { getOrder, putOrder, FINAL_STATUSES } from './_shared/domainOrders.js';
 import { getRenewal, putRenewal, RENEWAL_DONE_STATUSES } from './_shared/domainRenewals.js';
 import { putSubscriptionRecord, markSubscriptionLapsing, getSubscriptionRecord } from './_shared/domainSubscriptions.js';
+import { checkoutAccountFromEvent, paymentFailedFromEvent, subscriptionStatusFromEvent } from './_shared/billing-events.js';
+import { getAccount, putAccount, getDunning, putDunning } from './_shared/billing-store.js';
+import { emptyDunning, isTerminalUnpaidStatus, reconcileDrift } from '../../shared/billing-lifecycle.js';
+import { applySiteChange, writeClientPauseSwitch } from './_shared/billing-actions.js';
+import { envFlag, readEnv } from './_shared/billing-env.js';
+import { netlifyApi } from './_shared/netlify-sites.js';
 import { sendCheckoutPaymentEmails, sendInvoicePaymentFailedEmail, sendSubscriptionLapsingEmail, subscriptionLapsingFromUpdatedEvent } from './_shared/checkout-mail.js';
 
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
+function liveSiteDeps() {
+  const token = readEnv('NETLIFY_AUTH_TOKEN');
+  return {
+    netlifyApi,
+    writePause: ({ siteId, record }) => writeClientPauseSwitch({ siteId, record, token }),
+  };
+}
+
+async function rememberCheckoutAccount(event) {
+  const account = checkoutAccountFromEvent(event);
+  if (!account) return;
+  const existing = (await getAccount(account.id)) || {};
+  await putAccount(account.id, {
+    ...existing,
+    ...account,
+    phone: account.phone || existing.phone || null,
+    localPaused: existing.localPaused === true,
+  });
+}
+
+async function handlePaymentFailed(event) {
+  try {
+    await sendInvoicePaymentFailedEmail(event);
+  } catch (err) {
+    console.error('[stripe-webhook] invoice.payment_failed email', err.message);
+  }
+  const info = paymentFailedFromEvent(event);
+  if (!info) return json({ received: true, ignored: true });
+  const existing = (await getDunning(info.invoiceId)) || emptyDunning(info.invoiceId);
+  if (existing.status !== 'paid' && existing.status !== 'uncollectible') {
+    await putDunning(info.invoiceId, {
+      ...existing,
+      hostedInvoiceUrl: info.hostedInvoiceUrl || existing.hostedInvoiceUrl || null,
+    });
+  }
+  if (info.subscriptionId) {
+    const account = (await getAccount(info.subscriptionId)) || { id: info.subscriptionId };
+    const stripeStatus = isTerminalUnpaidStatus(account.stripeStatus) ? account.stripeStatus : 'past_due';
+    await putAccount(info.subscriptionId, {
+      ...account,
+      plan: info.plan || account.plan,
+      domain: info.domain || account.domain || null,
+      phone: info.phone || account.phone || null,
+      email: info.email || account.email || null,
+      placeId: info.placeId || account.placeId || null,
+      netlifySiteId: info.netlifySiteId || account.netlifySiteId || null,
+      netlifySiteName: info.netlifySiteName || account.netlifySiteName || null,
+      stripeStatus,
+      localPaused: account.localPaused === true,
+    });
+  }
+  return json({ received: true, recorded: info.invoiceId, paused: false });
+}
+
+async function rememberSubscriptionStatus(event) {
+  const info = subscriptionStatusFromEvent(event);
+  if (!info) return null;
+  const existing = (await getAccount(info.subscriptionId)) || { id: info.subscriptionId };
+  const account = {
+    ...existing,
+    plan: info.plan || existing.plan,
+    domain: info.domain || existing.domain || null,
+    phone: info.phone || existing.phone || null,
+    email: info.email || existing.email || null,
+    customerId: info.customerId || existing.customerId || null,
+    placeId: info.placeId || existing.placeId || null,
+    netlifySiteId: info.netlifySiteId || existing.netlifySiteId || null,
+    netlifySiteName: info.netlifySiteName || existing.netlifySiteName || null,
+    stripeStatus: info.status,
+    localPaused: existing.localPaused === true,
+    domainDetached: existing.domainDetached === true,
+  };
+  await putAccount(info.subscriptionId, account);
+  if (!info.terminal || account.localPaused || account.domainDetached) {
+    return { updated: info.subscriptionId, paused: false, applied: false };
+  }
+  const drift = reconcileDrift({
+    stripeStatus: info.status,
+    localPaused: false,
+    plan: account.plan,
+    domainRenewalDue: account.plan !== 'monthly' || account.domainRenewalDue === true,
+  });
+  const live = envFlag('BILLING_ACTIONS_LIVE');
+  if (drift.action === 'pause' && live) {
+    await applySiteChange({ account, decision: drift, dryRun: false, deps: liveSiteDeps() });
+    await putAccount(info.subscriptionId, {
+      ...account,
+      localPaused: drift.pauseSite === true,
+      domainDetached: drift.detachDomain === true,
+    });
+  }
+  return { updated: info.subscriptionId, paused: drift.action === 'pause', applied: live && drift.action === 'pause' };
+}
+
 async function handleCheckoutCompleted(event, base) {
+  try {
+    await rememberCheckoutAccount(event);
+  } catch (err) {
+    console.error('[stripe-webhook] billing account', err);
+    return json({ error: 'could not store billing account' }, 500);
+  }
   try {
     await sendCheckoutPaymentEmails(event);
   } catch (err) {
@@ -134,6 +240,7 @@ async function handleSubscriptionDeleted(event) {
       }
     }
     console.warn('[stripe-webhook] subscription lapsing', info.subscriptionId, info.domain);
+    await rememberSubscriptionStatus(event);
   } catch (err) {
     console.error('[stripe-webhook] lapsing mark failed', err);
     return json({ error: 'could not mark lapsing' }, 500);
@@ -147,30 +254,24 @@ async function handleSubscriptionDeleted(event) {
 }
 
 async function handleSubscriptionUpdated(event) {
+  const status = await rememberSubscriptionStatus(event);
   const info = subscriptionLapsingFromUpdatedEvent(event);
-  if (!info) return json({ received: true, ignored: true });
-
-  try {
-    await markSubscriptionLapsing(info.subscriptionId, info.eventId);
-  } catch (err) {
-    console.error('[stripe-webhook] lapsing mark (updated)', err);
-    return json({ error: 'could not mark lapsing' }, 500);
+  if (info) {
+    try {
+      await markSubscriptionLapsing(info.subscriptionId, info.eventId);
+    } catch (err) {
+      console.error('[stripe-webhook] lapsing mark (updated)', err);
+      return json({ error: 'could not mark lapsing' }, 500);
+    }
+    try {
+      await sendSubscriptionLapsingEmail(info);
+    } catch (err) {
+      console.error('[stripe-webhook] lapsing email (updated)', err.message);
+    }
+    return json({ received: true, lapsing: info.subscriptionId, ...(status || {}) });
   }
-  try {
-    await sendSubscriptionLapsingEmail(info);
-  } catch (err) {
-    console.error('[stripe-webhook] lapsing email (updated)', err.message);
-  }
-  return json({ received: true, lapsing: info.subscriptionId });
-}
-
-async function handleInvoicePaymentFailed(event) {
-  try {
-    await sendInvoicePaymentFailedEmail(event);
-  } catch (err) {
-    console.error('[stripe-webhook] invoice.payment_failed email', err.message);
-  }
-  return json({ received: true });
+  if (!status) return json({ received: true, ignored: true });
+  return json({ received: true, ...status });
 }
 
 /**
@@ -198,12 +299,12 @@ export default async (request) => {
       return handleCheckoutCompleted(event, base);
     case 'invoice.paid':
       return handleRenewalInvoice(event, base);
-    case 'customer.subscription.deleted':
-      return handleSubscriptionDeleted(event);
+    case 'invoice.payment_failed':
+      return handlePaymentFailed(event);
     case 'customer.subscription.updated':
       return handleSubscriptionUpdated(event);
-    case 'invoice.payment_failed':
-      return handleInvoicePaymentFailed(event);
+    case 'customer.subscription.deleted':
+      return handleSubscriptionDeleted(event);
     default:
       return json({ received: true, ignored: event.type });
   }

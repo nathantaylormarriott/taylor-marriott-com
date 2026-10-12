@@ -10,6 +10,7 @@ import { setOrdersStoreForTests, memoryStore } from '../netlify/functions/_share
 import { renewalFromInvoiceEvent, fulfilDomainRenewal, subscriptionDeletedFromEvent } from '../netlify/functions/_shared/domain-renew.js';
 import { setRenewalsStoreForTests, memoryRenewalsStore } from '../netlify/functions/_shared/domainRenewals.js';
 import { setSubscriptionStoreForTests, memorySubscriptionStore } from '../netlify/functions/_shared/domainSubscriptions.js';
+import { memoryStore as billingMemoryStore, setBillingStoresForTests } from '../netlify/functions/_shared/billing-store.js';
 import { fixedYearlyPenceForDomain, loadDomainPricingConfig, assertPorkbunWithinClientPrice } from '../netlify/functions/_shared/domain-pricing.js';
 
 const SITE = { siteId: 'site-1', siteName: 'tmbulk-acme', customDomain: null, domainAliases: [], source: 'registry' };
@@ -312,6 +313,7 @@ test('customer.subscription.deleted parsed for lapsing', () => {
 test('webhook handler: bad signature 400, good one queues once and starts the background job', async () => {
   const store = memoryStore();
   setOrdersStoreForTests(store);
+  setBillingStoresForTests({ accounts: billingMemoryStore(), dunning: billingMemoryStore(), events: billingMemoryStore() });
   process.env.STRIPE_WEBHOOK_SECRET = 'whsec_unit_test_only';
   process.env.URL = 'https://example.test';
   const { default: webhook } = await import('../netlify/functions/stripe-webhook.js');
@@ -343,6 +345,7 @@ test('webhook: invoice.paid renewal queued once; subscription.deleted marks laps
   const subStore = memorySubscriptionStore();
   setRenewalsStoreForTests(renewStore);
   setSubscriptionStoreForTests(subStore);
+  setBillingStoresForTests({ accounts: billingMemoryStore(), dunning: billingMemoryStore(), events: billingMemoryStore() });
   process.env.STRIPE_WEBHOOK_SECRET = 'whsec_unit_test_only';
   process.env.URL = 'https://example.test';
   const { default: webhook } = await import('../netlify/functions/stripe-webhook.js');

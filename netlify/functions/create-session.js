@@ -4,9 +4,8 @@ import {
   fixedYearlyPenceForDomain,
   loadDomainPricingConfig,
   assertPorkbunWithinClientPrice,
-  isYearlyPriceIncludedInPackage,
-  PACKAGE_EXCLUDED_LABEL,
 } from './_shared/domain-pricing.js';
+import { normalizePlan } from '../../shared/billing-plans.js';
 import { resolveNetlifyHintsForCheckout } from './_shared/checkout-netlify-hints.js';
 import { checkDomain, getTldPricing, normalizeDomain } from './_shared/porkbun-client.js';
 import {
@@ -51,6 +50,11 @@ export default async (request) => {
   const siteIdRaw = body.site_id == null || body.site_id === '' ? '' : String(body.site_id).trim();
   const emailRaw = body.email == null || body.email === '' ? '' : String(body.email).trim();
   const domainRaw = body.domain == null || body.domain === '' ? null : String(body.domain).trim();
+  const plan = normalizePlan(body.plan);
+  const phoneRaw = body.phone == null ? '' : String(body.phone).trim();
+  if (body.terms_accepted !== true) {
+    return jsonResponse(request, { error: 'Accept the Terms and Privacy policy to continue' }, 400);
+  }
 
   if (!placeId || !PLACE_ID_RE.test(placeId)) {
     return jsonResponse(request, { error: 'Invalid place_id' }, 400);
@@ -104,13 +108,6 @@ export default async (request) => {
         }
         throw guardErr;
       }
-      if (!isYearlyPriceIncludedInPackage(priced.pence, domainPricing.includedMaxPence)) {
-        return jsonResponse(
-          request,
-          { error: 'domain_not_in_package', message: PACKAGE_EXCLUDED_LABEL, domain },
-          409,
-        );
-      }
       domainAmountPence = priced.pence;
     } catch (err) {
       console.error('[create-session] domain check', err);
@@ -145,13 +142,15 @@ export default async (request) => {
   }
 
   try {
-    const idempotencyKey = siteCheckoutIdempotencyKey(placeId, domain);
+    const idempotencyKey = siteCheckoutIdempotencyKey(placeId, domain, plan);
     const result = await createSiteCheckoutSession(
       {
         placeId,
         domain,
         domainAmountPence,
         customerEmail: emailRaw || undefined,
+        plan,
+        phone: phoneRaw || undefined,
         successUrl,
         cancelUrl,
         netlifySiteId: netlifyHints.netlifySiteId,
