@@ -5,7 +5,15 @@ import {
   DOMAIN_FIRST_YEAR_TRIAL_DAYS,
   stripeSubmitMessage,
 } from '../../../shared/domain-package.js';
-import { isYearlyPriceIncludedInPackage, loadDomainPricingConfig } from './domain-pricing.js';
+import {
+  MONTHLY_PENCE,
+  PLAN_MONTHLY,
+  allowanceForPlan,
+  domainExcessPence,
+  monthlyDomainCopy,
+  normalizePlan,
+  oneOffRenewalCopy,
+} from '../../../shared/billing-plans.js';
 
 const STRIPE_API = 'https://api.stripe.com/v1';
 export const SITE_PRODUCT_TYPE = 'site_checkout';
@@ -58,7 +66,10 @@ export function buildSiteCheckoutParams(input = {}, { allowIncomplete = false, c
     siteProductName,
     netlifySiteId,
     netlifySiteName,
+    plan: planInput,
+    phone,
   } = input || {};
+  const plan = normalizePlan(planInput);
 
   if (!placeId || typeof placeId !== 'string') throw validationError('placeId required');
 
@@ -80,14 +91,9 @@ export function buildSiteCheckoutParams(input = {}, { allowIncomplete = false, c
       );
     }
     if (n < MIN_AMOUNT_PENCE) throw validationError(`domainAmountPence must be >= ${MIN_AMOUNT_PENCE}`);
-    const pricing = loadDomainPricingConfig();
-    if (!isYearlyPriceIncludedInPackage(n, pricing.includedMaxPence)) {
-      throw validationError(
-        `Domain yearly price exceeds £${pricing.includedMaxYearlyGbp} included in the £299 package`,
-      );
-    }
     domainAmount = n;
   }
+  const excess = hasDomain ? domainExcessPence(domainAmount, allowanceForPlan(plan)) : 0;
 
   const missing = [];
   for (const [name, val] of [
@@ -109,13 +115,15 @@ export function buildSiteCheckoutParams(input = {}, { allowIncomplete = false, c
     throw validationError('customerEmail is not an email address');
   }
 
-  const metadata = { product_type: SITE_PRODUCT_TYPE, place_id: placeId, domain: apex };
+  const metadata = { product_type: SITE_PRODUCT_TYPE, place_id: placeId, domain: apex, plan };
+  if (phone) metadata.phone = String(phone);
   const leadDays = Number.isInteger(cfg.renewalLeadDays) ? cfg.renewalLeadDays : DEFAULT_RENEWAL_LEAD_DAYS;
   if (hasDomain) {
     metadata.renewal_lead_days = String(leadDays);
     metadata.tld = tldOf(apex);
     metadata.domain_amount_pence = String(domainAmount);
-    metadata.domain_first_year_included = '1';
+    metadata.domain_excess_pence = String(excess);
+    metadata.domain_first_year_included = plan === PLAN_MONTHLY ? '0' : '1';
     if (netlifySiteId) metadata.netlify_site_id = String(netlifySiteId);
     if (netlifySiteName) metadata.netlify_site_name = String(netlifySiteName);
   }
@@ -125,17 +133,36 @@ export function buildSiteCheckoutParams(input = {}, { allowIncomplete = false, c
       quantity: 1,
       price_data: {
         currency: 'gbp',
-        unit_amount: site,
+        unit_amount: plan === PLAN_MONTHLY ? MONTHLY_PENCE : site + excess,
         product_data: {
-          name: hasDomain
-            ? siteProductName || 'Website + domain (year 1 included)'
-            : siteProductName || 'Website (one-time)',
+          name:
+            siteProductName ||
+            (plan === PLAN_MONTHLY
+              ? 'Website, £39/month'
+              : hasDomain
+                ? 'Website, £299 one-off'
+                : 'Website (one-time)'),
           metadata: { ...metadata },
         },
       },
     },
   ];
-  if (hasDomain) {
+  if (plan === PLAN_MONTHLY) {
+    lineItems[0].price_data.recurring = { interval: 'month', interval_count: 1 };
+    if (excess > 0) {
+      lineItems.push({
+        quantity: 1,
+        price_data: {
+          currency: 'gbp',
+          unit_amount: excess,
+          product_data: {
+            name: `Domain excess: ${apex}`,
+            metadata: { ...metadata },
+          },
+        },
+      });
+    }
+  } else if (hasDomain) {
     lineItems.push({
       quantity: 1,
       price_data: {
@@ -151,22 +178,35 @@ export function buildSiteCheckoutParams(input = {}, { allowIncomplete = false, c
   }
 
   const params = {
-    mode: hasDomain ? 'subscription' : 'payment',
+    mode: plan === PLAN_MONTHLY || hasDomain ? 'subscription' : 'payment',
     success_url: successUrl || null,
     cancel_url: cancelUrl || null,
     client_reference_id: placeId,
     line_items: lineItems,
     metadata: { ...metadata },
   };
-  if (hasDomain) {
+  if (plan === PLAN_MONTHLY || hasDomain) {
     params.subscription_data = {
       metadata: { ...metadata },
-      description: `Domain renewal for ${apex} after the included first year`,
-      trial_period_days: DOMAIN_FIRST_YEAR_TRIAL_DAYS,
+      description:
+        plan === PLAN_MONTHLY
+          ? '£39/month website. Cancel anytime.'
+          : `Domain renewal for ${apex} after the included first year`,
     };
+    if (plan !== PLAN_MONTHLY && hasDomain) {
+      params.subscription_data.trial_period_days = DOMAIN_FIRST_YEAR_TRIAL_DAYS;
+    }
+    const when = new Date();
+    when.setFullYear(when.getFullYear() + 1);
+    const whenLabel = when.toLocaleDateString('en-GB', { month: 'short', year: 'numeric', timeZone: 'Europe/London' });
     params.custom_text = {
       submit: {
-        message: stripeSubmitMessage(apex, domainAmount),
+        message:
+          plan === PLAN_MONTHLY
+            ? monthlyDomainCopy(domainAmount || 0).slice(0, 500)
+            : excess > 0
+              ? oneOffRenewalCopy(domainAmount, whenLabel).slice(0, 500)
+              : stripeSubmitMessage(apex, domainAmount),
       },
     };
   } else {
@@ -181,6 +221,8 @@ export function buildSiteCheckoutParams(input = {}, { allowIncomplete = false, c
     domain: apex,
     siteAmountPence: site,
     domainAmountPence: domainAmount,
+    plan,
+    excessPence: excess,
     currency: 'gbp',
   };
 }
@@ -286,8 +328,8 @@ export function verifyStripeWebhook(rawBody, signatureHeader, opts = {}) {
   return JSON.parse(body);
 }
 
-export function siteCheckoutIdempotencyKey(placeId, domain) {
+export function siteCheckoutIdempotencyKey(placeId, domain, plan = 'one_off') {
   const d = domain ? normalizeDomain(domain) : '';
-  const raw = `site_checkout:${placeId}:${d}`;
+  const raw = `site_checkout:${placeId}:${d}:${plan}`;
   return crypto.createHash('sha256').update(raw).digest('hex').slice(0, 32);
 }

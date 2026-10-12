@@ -25,7 +25,7 @@ export async function searchDomains({ placeId, q, signal }) {
   return data;
 }
 
-export async function createCheckoutSession({ placeId, domain, email }) {
+export async function createCheckoutSession({ placeId, domain, email, plan, phone, termsAccepted }) {
   const res = await fetch('/api/create-session', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -33,6 +33,9 @@ export async function createCheckoutSession({ placeId, domain, email }) {
       place_id: placeId,
       domain: domain || null,
       email: email || undefined,
+      plan: plan || 'one_off',
+      phone: phone || undefined,
+      terms_accepted: termsAccepted === true,
     }),
   });
   const data = await res.json().catch(() => ({}));
