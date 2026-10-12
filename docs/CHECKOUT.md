@@ -34,11 +34,12 @@ Client-facing checkout for the £299 website fee and an optional yearly domain a
 | `PORKBUN_SECRET_API_KEY` | Same | |
 | `STRIPE_SECRET_KEY` | For pay button | Use `sk_test_…` first |
 | `STRIPE_WEBHOOK_SECRET` | Post-payment + renewals | Subscribe the endpoint to **`checkout.session.completed`**, **`invoice.paid`**, **`invoice.payment_failed`**, **`customer.subscription.deleted`**, **`customer.subscription.updated`** |
-| `SENDGRID_API_KEY` | Transactional email | SendGrid API key (Mail Send). If unset, checkout and fulfilment still run; emails are skipped and logged. |
-| `SENDGRID_FROM_EMAIL` | Optional | Default `nathan@taylor-marriott.com` (must match a SendGrid **single sender** or authenticated domain). |
-| `SENDGRID_FROM_NAME` | Optional | Default `Taylor-Marriott` (display name on From). |
-| `SENDGRID_REPLY_TO` | Optional | Default `nathan@taylor-marriott.com`. |
+| `GOOGLE_GMAIL_REFRESH_TOKEN` | Checkout email | OAuth refresh token with scope **`gmail.send`**. Same `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` as Calendar. Run `node scripts/google-oauth-gmail-refresh-token.mjs` locally, then copy to Netlify. Sign in as **nathan@taylor-marriott.com**. |
+| `CHECKOUT_FROM_EMAIL` | Optional | Default `nathan@taylor-marriott.com` (must match the Google account used for the refresh token). |
+| `CHECKOUT_FROM_NAME` | Optional | Default `Taylor-Marriott`. |
+| `CHECKOUT_REPLY_TO` | Optional | Default `nathan@taylor-marriott.com`. |
 | `CHECKOUT_ALERT_EMAIL` | Optional | Nathan alerts (failures, dry-run fulfilment, new sales). Default `nathan@taylor-marriott.com`. |
+| `SENDGRID_API_KEY` | Legacy only | Optional fallback if Gmail OAuth is not set. Not recommended. |
 | `NETLIFY_AUTH_TOKEN` | Fulfilment | Finds the client site and sets its custom domain |
 | `DOMAIN_PURCHASE_LIVE` | Kill switch | `1` = really register/renew at Porkbun (live-mode Stripe only). Anything else = dry run |
 | `DOMAIN_CONNECT_LIVE` | Kill switch | `1` = really change DNS + Netlify custom domain (first purchase only) |
@@ -91,9 +92,9 @@ Failed / cancelled subscription
     → mark subscription lapsing in Blobs; email Nathan; no Porkbun renew, no spend on our side
 ```
 
-## Transactional email (SendGrid)
+## Transactional email (Google Workspace / Gmail)
 
-Checkout sends email via **SendGrid** from Netlify Functions (`netlify/functions/_shared/mailer.js`). Email never blocks payment or domain jobs — failures are logged only. Each message is **idempotent** (Netlify Blobs store `checkout-emails`).
+Checkout sends email via the **Gmail API** from Netlify Functions (`netlify/functions/_shared/mailer.js`), using your **nathan@taylor-marriott.com** mailbox (same Google OAuth client as discovery booking). Email never blocks payment or domain jobs — failures are logged only. Each message is **idempotent** (Netlify Blobs store `checkout-emails`).
 
 | When | To | Notes |
 |------|-----|--------|
@@ -105,16 +106,15 @@ Checkout sends email via **SendGrid** from Netlify Functions (`netlify/functions
 | `invoice.payment_failed` | Nathan | Yearly domain charge failed |
 | Subscription lapsing | Nathan | Cancelled or unpaid |
 
-### What Nathan must set up (SendGrid + DNS)
+### What Nathan must set up (Gmail)
 
-1. **SendGrid account** — create an API key with **Mail Send** permission only. In Netlify → Environment variables, set **`SENDGRID_API_KEY`** (never commit it).
-2. **Sender** — authenticate the domain **`taylor-marriott.com`** in SendGrid (Settings → Sender Authentication → Authenticate Your Domain). Use the DNS host for the domain (often Porkbun or Netlify DNS). SendGrid will show exact records; typically:
-   - **CNAME** `emXXXX.taylor-marriott.com` → `uXXXX.wl.sendgrid.net` (mail subdomain)
-   - **CNAME** `s1._domainkey.taylor-marriott.com` → `s1.domainkey.uXXXX.wl.sendgrid.net` (DKIM)
-   - **CNAME** `s2._domainkey.taylor-marriott.com` → `s2.domainkey.uXXXX.wl.sendgrid.net` (DKIM)
-   - Optional **TXT** on `@` for SPF if SendGrid instructs (often `v=spf1 include:sendgrid.net ~all` merged with any existing SPF — only one SPF TXT per domain).
-3. **Env vars** — `SENDGRID_FROM_EMAIL=nathan@taylor-marriott.com`, `SENDGRID_FROM_NAME=Taylor-Marriott`, `SENDGRID_REPLY_TO=nathan@taylor-marriott.com`, `CHECKOUT_ALERT_EMAIL=nathan@taylor-marriott.com`.
-4. **Stripe webhook** — in the Stripe Dashboard (test and live endpoints), add events **`invoice.payment_failed`** and **`customer.subscription.updated`** to the existing subscription (do not change the endpoint URL). Existing: `checkout.session.completed`, `invoice.paid`, `customer.subscription.deleted`.
+1. **Google Cloud** — on the same project as Calendar OAuth, enable **Gmail API**.
+2. **OAuth Web client** — add redirect URI `http://localhost:3334/oauth/callback` (in addition to the Calendar callback on port 3333 if you use both scripts).
+3. **Refresh token** — from the project root, run `node scripts/google-oauth-gmail-refresh-token.mjs`, sign in as **nathan@taylor-marriott.com**, consent to **Send email on your behalf**. Copy **`GOOGLE_GMAIL_REFRESH_TOKEN`** to Netlify production (functions + runtime, secret).
+4. **Env vars** (optional overrides) — `CHECKOUT_FROM_EMAIL`, `CHECKOUT_FROM_NAME`, `CHECKOUT_REPLY_TO`, `CHECKOUT_ALERT_EMAIL`.
+5. **Stripe webhook** — in the Stripe Dashboard (test and live endpoints), add events **`invoice.payment_failed`** and **`customer.subscription.updated`** to the existing subscription (do not change the endpoint URL). Existing: `checkout.session.completed`, `invoice.paid`, `customer.subscription.deleted`.
+
+Mail is sent **from your Gmail/Workspace Sent folder** — no SendGrid or extra DNS for checkout email.
 
 ### Checkout device previews
 

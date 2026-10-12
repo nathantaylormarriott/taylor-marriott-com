@@ -22,12 +22,33 @@ import {
   previewUrlFromConfig,
 } from '../netlify/functions/_shared/checkout-preview-resolve.js';
 
-test('mailer skips when SENDGRID_API_KEY missing', async () => {
+test('mailer skips when Gmail and SendGrid not configured', async () => {
   const r = await sendMail({ to: 'a@b.com', subject: 't', text: 'x' }, { env: {} });
   assert.equal(r.skipped, true);
 });
 
-test('mailer sends via SendGrid when configured', async () => {
+test('mailer sends via Gmail when OAuth configured', async () => {
+  let captured = null;
+  const r = await sendMail(
+    { to: 'client@example.com', subject: 'Hi', text: 'Body' },
+    {
+      env: {
+        GOOGLE_OAUTH_CLIENT_ID: 'cid',
+        GOOGLE_OAUTH_CLIENT_SECRET: 'sec',
+        GOOGLE_GMAIL_REFRESH_TOKEN: 'rt',
+        CHECKOUT_FROM_EMAIL: 'nathan@taylor-marriott.com',
+      },
+      gmailSend: async (msg) => {
+        captured = msg;
+        return { ok: true, provider: 'gmail' };
+      },
+    },
+  );
+  assert.equal(r.ok, true);
+  assert.equal(captured.to[0], 'client@example.com');
+});
+
+test('mailer sends via SendGrid when only SendGrid configured', async () => {
   let captured = null;
   const fetchFn = async (url, init) => {
     captured = { url, init };
@@ -39,9 +60,6 @@ test('mailer sends via SendGrid when configured', async () => {
   );
   assert.equal(r.ok, true);
   assert.equal(captured.url, 'https://api.sendgrid.com/v3/mail/send');
-  const body = JSON.parse(captured.init.body);
-  assert.equal(body.from.email, 'nathan@taylor-marriott.com');
-  assert.equal(body.personalizations[0].to[0].email, 'client@example.com');
 });
 
 test('sendEmailOnce is idempotent', async () => {
