@@ -1,5 +1,4 @@
-import { formatGbp, tldOf } from './checkout-config.js';
-import { fixedYearlyPenceForDomain, loadDomainPricingConfig } from './domain-pricing.js';
+import { formatGbp, livePorkbunClientPricePence, tldOf } from './checkout-config.js';
 import { domainRenewalUpfrontCopy } from '../../../shared/domain-package.js';
 
 export function porkbunRowToSearchResult(row, tldPricing, config) {
@@ -28,8 +27,7 @@ export function porkbunRowToSearchResult(row, tldPricing, config) {
   let clientPriceDisplay = null;
   let renewalUpfront = null;
   if (state === 'available') {
-    const pricing = loadDomainPricingConfig();
-    const priced = fixedYearlyPenceForDomain(domain, pricing);
+    const priced = livePorkbunClientPricePence(quote, config);
     if (priced.pence != null) {
       clientPricePence = priced.pence;
       clientPriceDisplay = formatGbp(priced.pence);

@@ -1,5 +1,5 @@
 /**
- * Live USD→GBP for Porkbun cost guard (not retail pricing).
+ * Live USD→GBP for the customer domain price and the Porkbun cost guard.
  * Fallback: fresh cache → live APIs → last-known-good blob → CHECKOUT_USD_TO_GBP / config.
  */
 import { resolveUsdToGbp } from './checkout-config.js';

@@ -1,5 +1,5 @@
 {
-  "_todo": "Nathan: confirm retail yearly domain prices (GBP pence). Placeholders below — not live Stripe Price IDs.",
+  "_note": "Not the checkout price. Search and pay use live Porkbun USD converted to GBP. This table is unused by checkout.",
   "includedMaxYearlyGbp": 20,
   "currency": "gbp",
   "yearlyPenceByTld": {

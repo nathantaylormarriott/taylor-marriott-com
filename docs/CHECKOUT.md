@@ -18,7 +18,7 @@ Client-facing checkout for the £299 website fee and an optional yearly domain a
 |------|---------|
 | `/checkout?place_id=…&site_id=…` | Domain search, cart, pay (see link format above) |
 | `/checkout/done?session_id=…` | Stripe success return |
-| `GET /api/domain-search` | Normalises pasted URLs; label → `.co.uk`/`.com`/`.uk`; fixed retail price; up to 3 alternatives if taken |
+| `GET /api/domain-search` | Normalises pasted URLs; label → `.co.uk`/`.com`/`.uk`; live Porkbun price in GBP; up to 3 alternatives if taken |
 | `GET /api/domain-suggestions` | Auto-suggested domains from business/trade/town (Porkbun check, cached ~5 min) |
 | `GET /api/client-preview-site?place_id=…&site_id=…` | Verified preview URL for device mockups (optional `site_id` → registry → config → cached team scan) |
 | `POST /api/create-session` | Stripe Checkout Session (server recomputes amounts) |
@@ -46,14 +46,13 @@ Client-facing checkout for the £299 website fee and an optional yearly domain a
 | `CHECKOUT_USD_TO_GBP` | Emergency fallback | Only if live FX APIs + blob cache unavailable (see pricing section) |
 | `CHECKOUT_BASE_URL` | Optional | e.g. `https://taylor-marriott.com/checkout` |
 
-## Domain retail pricing (fixed per TLD)
+## Domain yearly price
 
-Yearly client prices are **fixed GBP** in `config/domain-pricing.json` (placeholders until Nathan confirms), e.g. `.co.uk` / `.uk` £15, `.com` £20.
+The price shown and charged is Porkbun’s live registration or renewal cost, whichever is higher, converted to GBP with the live USD→GBP rate and rounded up to the penny. It is not the old fixed table in `config/domain-pricing.json`.
 
-- Search and checkout show these retail prices, not pass-through Porkbun quotes.
-- `create-session` still checks Porkbun and **refuses** premium names or when live Porkbun cost (USD × live USD→GBP rate, +10% margin) exceeds the retail price charged. FX: Frankfurter (ECB daily) → open.er-api.com → 1h blob cache → `CHECKOUT_USD_TO_GBP` env.
+- `create-session` still **refuses** premium names, and refuses if that converted price would not cover Porkbun’s cost plus 10%. FX: Frankfurter (ECB daily) → open.er-api.com → 1h blob cache → `CHECKOUT_USD_TO_GBP` env.
 
-Suggested checkout copy: *“The domain renews yearly at £X until cancelled; if payment fails it lapses.”* (Use the TLD price from `domain-pricing.json`.)
+Suggested checkout copy: *“The domain renews yearly at £X until cancelled; if payment fails it lapses.”* (£X is the price quoted at checkout.)
 
 ## Stripe Checkout modes
 

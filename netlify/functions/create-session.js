@@ -1,10 +1,7 @@
 import { handleOptions, jsonResponse } from './_shared/http.js';
 import { loadCheckoutConfigWithFx } from './_shared/checkout-config-async.js';
-import {
-  fixedYearlyPenceForDomain,
-  loadDomainPricingConfig,
-  assertPorkbunWithinClientPrice,
-} from './_shared/domain-pricing.js';
+import { assertPorkbunWithinClientPrice } from './_shared/domain-pricing.js';
+import { livePorkbunClientPricePence } from './_shared/checkout-config.js';
 import { normalizePlan } from '../../shared/billing-plans.js';
 import { resolveNetlifyHintsForCheckout } from './_shared/checkout-netlify-hints.js';
 import { checkDomain, getTldPricing, normalizeDomain } from './_shared/porkbun-client.js';
@@ -95,8 +92,7 @@ export default async (request) => {
       }
 
       const quote = quoteFromCheckAndTld(check, tldPricing);
-      const domainPricing = loadDomainPricingConfig();
-      const priced = fixedYearlyPenceForDomain(domain, domainPricing);
+      const priced = livePorkbunClientPricePence(quote, config);
       if (priced.pence == null) {
         return jsonResponse(request, { error: 'domain_price_not_configured', domain, tld: priced.tld }, 409);
       }
