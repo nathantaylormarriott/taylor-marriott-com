@@ -1,15 +1,17 @@
 /**
  * Enrol a lead, list sequencer status, and send the one due step per lead.
- * OUTREACH_SEND_LIVE=1 sends. Any other value logs the would-be send and
- * writes no touch. A reply or a suppression row stops the lead before send.
+ * Day 0 sends as soon as the lead is enrolled. Day 3 and Day 10 wait for 19:00
+ * Europe/London. OUTREACH_SEND_LIVE=1 sends. Any other value logs the would-be
+ * send and writes no touch. A reply does not stop the sequence. Purchase does.
  */
 import { readEnv } from './billing-env.js';
 import {
+  findActiveSiteAccount,
   getLead,
-  hasReplied,
   isSuppressed,
   listLeads,
   saveLead,
+  stopLeadManually,
   toE164,
 } from './inbound-store.js';
 import {
@@ -48,17 +50,25 @@ export function leadView(lead, suppressed) {
   const days = sentDays(lead);
   const startedAt = lead.sequence && (lead.sequence.day0At || lead.sequence.startedAt);
   const complete = lead.sequence && lead.sequence.status === 'complete';
-  const halted = lead.sequence && lead.sequence.status === 'halted';
+  const stopped = Boolean(
+    lead.purchased
+    || (lead.sequence && (lead.sequence.status === 'stopped' || lead.sequence.status === 'halted')),
+  );
   const last = days.length ? days[days.length - 1] : null;
   return {
     phone: lead.phone,
     channel: lead.channel || null,
     businessName: lead.businessName || null,
+    siteId: lead.siteId || null,
     step: last,
-    nextDueOn: complete || halted || !startedAt ? null : nextDueOn(startedAt, days),
+    nextDueOn: complete || stopped || !startedAt ? null : nextDueOn(startedAt, days),
     replied: lead.replied === true,
+    optedOut: lead.optedOut === true,
+    purchased: lead.purchased === true,
     suppressed: Boolean(suppressed || lead.suppressed),
     complete: Boolean(complete),
+    stopped,
+    stopReason: (lead.sequence && lead.sequence.haltReason) || null,
     status: (lead.sequence && lead.sequence.status) || 'idle',
   };
 }
@@ -131,15 +141,15 @@ export async function enrolLead(body, deps = {}) {
   if (email && !validEmail(email)) return { status: 400, body: { error: 'bad_email' } };
 
   const existing = await getLead(phone, store);
-  if (await isSuppressed(phone, store) || (existing && existing.suppressed)) {
-    return { status: 409, body: { error: 'suppressed' } };
-  }
-  if (await hasReplied(phone, store) || (existing && existing.replied)) {
-    return { status: 409, body: { error: 'replied' } };
-  }
   const sequence = existing && existing.sequence;
   const enrolled = Boolean(
-    sequence && (sequence.status === 'active' || sequence.status === 'complete' || sequence.startedAt || (sequence.touches || []).length),
+    sequence && (
+      sequence.status === 'active'
+      || sequence.status === 'complete'
+      || sequence.status === 'stopped'
+      || sequence.startedAt
+      || (sequence.touches || []).length
+    ),
   );
   if (enrolled) return { status: 409, body: { error: 'already_enrolled' } };
 
@@ -156,6 +166,13 @@ export async function enrolLead(body, deps = {}) {
 
   const at = now instanceof Date ? now.toISOString() : new Date(now).toISOString();
   const due = londonDate(at);
+  let alreadyBought = null;
+  try {
+    alreadyBought = await findActiveSiteAccount(siteId, deps.accounts);
+  } catch (err) {
+    logLine(deps, 'error', `[outreach] purchase lookup failed ${err.message}`);
+  }
+  const purchased = Boolean(alreadyBought);
   const lead = await saveLead(
     phone,
     {
@@ -168,34 +185,67 @@ export async function enrolLead(body, deps = {}) {
       town,
       siteId,
       lastChannel: channel,
+      purchased,
+      purchasedAt: purchased ? at : null,
+      purchasePlan: alreadyBought && alreadyBought.plan ? alreadyBought.plan : null,
+      purchaseSource: purchased ? 'billing' : null,
       sequence: {
-        status: 'active',
+        status: purchased ? 'stopped' : 'active',
         startedAt: at,
         day0At: at,
-        nextTouchOn: due,
+        nextTouchOn: purchased ? null : due,
         touches: [],
-        haltReason: null,
-        haltedAt: null,
+        haltReason: purchased ? 'purchased' : null,
+        haltedAt: purchased ? at : null,
       },
     },
     store,
   );
+  let day0 = null;
+  if (!purchased && lead.sequence.status === 'active') {
+    day0 = await sendStepForLead(lead, 0, { ...deps, env, store, now: now instanceof Date ? now : new Date(now) });
+  }
+  const stored = (await getLead(phone, store)) || lead;
   return {
     status: 200,
     body: {
       ok: true,
-      phone: lead.phone,
+      phone: stored.phone,
       channel,
       day0At: at,
-      nextDueOn: due,
-      status: lead.sequence.status,
+      nextDueOn: stored.sequence.nextTouchOn,
+      status: stored.sequence.status,
+      purchased: stored.purchased === true,
+      day0,
     },
   };
 }
 
-async function stopLead(phone, store, deps, reason) {
-  await saveLead(phone, {}, store);
-  logLine(deps, 'log', `[outreach] stop ${phone} ${reason}`);
+export async function stopOutreachLead(body, deps = {}) {
+  const store = deps.store;
+  const now = deps.now ? deps.now() : new Date();
+  const at = now instanceof Date ? now.toISOString() : new Date(now).toISOString();
+  const siteId = field(body, 'site_id', 'siteId');
+  const phone = toE164(field(body, 'phone'));
+  if (!phone && !siteId) return { status: 400, body: { error: 'missing_phone_or_site' } };
+  if (siteId) {
+    const leads = (await listLeads(store)).filter((lead) => String(lead.siteId || '') === siteId);
+    if (!leads.length && !phone) return { status: 404, body: { error: 'not_found' } };
+    const stopped = [];
+    for (const lead of leads) {
+      const next = await stopLeadManually(lead.phone, { at }, store);
+      if (next) stopped.push(next.phone);
+    }
+    if (phone) {
+      const next = await stopLeadManually(phone, { at }, store);
+      if (next && !stopped.includes(next.phone)) stopped.push(next.phone);
+    }
+    if (!stopped.length) return { status: 404, body: { error: 'not_found' } };
+    return { status: 200, body: { ok: true, stopped, reason: 'manual' } };
+  }
+  const next = await stopLeadManually(phone, { at }, store);
+  if (!next) return { status: 404, body: { error: 'not_found' } };
+  return { status: 200, body: { ok: true, stopped: [next.phone], reason: 'manual' } };
 }
 
 function contentSid(env, name) {
@@ -273,6 +323,66 @@ async function deliver({ channel, lead, day, env, deps }) {
   return sent;
 }
 
+function sendFailureLine(phone, day, err) {
+  const blocked = err.twilioCode === 21610
+    || /unsubscribed|opted out|blacklist|not a valid mobile/i.test(String(err.message || ''));
+  const note = blocked
+    ? 'Twilio may have blocked this number after STOP. Continuing.'
+    : 'Continuing.';
+  return `[outreach] send failed ${phone} day ${day} ${err.twilioCode || err.code || ''} ${err.message}. ${note}`;
+}
+
+async function sendStepForLead(lead, day, deps) {
+  const env = deps.env || process.env;
+  const store = deps.store;
+  const now = deps.now instanceof Date ? deps.now : new Date(deps.now || Date.now());
+  const phone = lead.phone;
+  const fresh = await getLead(phone, store);
+  if (!fresh || fresh.purchased === true || (fresh.sequence && fresh.sequence.status === 'stopped')) {
+    return { phone, day, skipped: fresh && fresh.purchased ? 'purchased' : 'stopped' };
+  }
+  if (sentDays(fresh).includes(day)) return { phone, day, skipped: 'already-sent' };
+  let delivered;
+  try {
+    delivered = await deliver({ channel: fresh.channel, lead: fresh, day, env, deps });
+  } catch (err) {
+    logLine(deps, 'error', sendFailureLine(phone, day, err));
+    return { phone, day, error: err.code || 'send-failed' };
+  }
+  if (!delivered || delivered.ok === false) {
+    return { phone, day, skipped: delivered && delivered.reason };
+  }
+  if (!outreachLive(env) || delivered.dryRun) {
+    const preview = typeof delivered.preview === 'string' ? delivered.preview : JSON.stringify(delivered.preview);
+    logLine(deps, 'log', `[outreach] dry run would send day ${day} ${fresh.channel} ${phone} ${preview}`);
+    return { phone, day, dryRun: true };
+  }
+  const again = await getLead(phone, store);
+  if (!again || again.purchased === true || (again.sequence && again.sequence.status === 'stopped')) {
+    return { phone, day, skipped: 'stopped' };
+  }
+  if (sentDays(again).includes(day)) return { phone, day, skipped: 'already-sent' };
+  const touch = {
+    day,
+    channel: fresh.channel,
+    at: now.toISOString(),
+    messageSid: delivered.id || null,
+    status: delivered.status || 'sent',
+  };
+  const touches = [...((again.sequence && again.sequence.touches) || []), touch];
+  const finished = sequenceComplete(sentDays({ sequence: { touches } }));
+  await saveLead(phone, {
+    sequence: {
+      ...again.sequence,
+      status: finished ? 'complete' : 'active',
+      touches,
+      nextTouchOn: finished ? null : nextDueOn(again.sequence.day0At || again.sequence.startedAt, sentDays({ sequence: { touches } })),
+    },
+  }, store);
+  logLine(deps, 'log', `[outreach] sent day ${day} ${fresh.channel} ${phone} ${touch.messageSid || ''} ${touch.status}`);
+  return { phone, day, id: touch.messageSid, status: touch.status, complete: finished };
+}
+
 export async function runOutreachDay(deps = {}) {
   const env = deps.env || process.env;
   const store = deps.store;
@@ -280,6 +390,7 @@ export async function runOutreachDay(deps = {}) {
   const live = outreachLive(env);
   const cap = outreachCap(env);
   const waLimit = Number.isInteger(deps.whatsappDailyLimit) ? deps.whatsappDailyLimit : WHATSAPP_DAILY_LIMIT;
+  const onlyDays = Array.isArray(deps.onlyDays) ? deps.onlyDays : [0, 3, 10];
   const today = londonDate(now);
   const leads = (await listLeads(store)).sort((a, b) => String(a.phone).localeCompare(String(b.phone)));
   const counts = countSendsOn(leads, today);
@@ -288,15 +399,11 @@ export async function runOutreachDay(deps = {}) {
   const results = [];
 
   for (const lead of leads) {
+    if (deps.phone && lead.phone !== deps.phone) continue;
     const phone = lead.phone;
     const status = lead.sequence && lead.sequence.status;
     if (status !== 'active') continue;
-    if (await hasReplied(phone, store) || await isSuppressed(phone, store)) {
-      const reason = (await hasReplied(phone, store)) ? 'replied' : 'suppressed';
-      await stopLead(phone, store, deps, reason);
-      results.push({ phone, stopped: reason });
-      continue;
-    }
+    if (lead.purchased === true) continue;
     const startedAt = lead.sequence.day0At || lead.sequence.startedAt;
     const days = sentDays(lead);
     if (sequenceComplete(days)) {
@@ -307,7 +414,7 @@ export async function runOutreachDay(deps = {}) {
       continue;
     }
     const due = dueStep(startedAt, now, days);
-    if (!due) continue;
+    if (!due || !onlyDays.includes(due.day)) continue;
 
     const channel = lead.channel;
     const quota = canSend({
@@ -328,59 +435,12 @@ export async function runOutreachDay(deps = {}) {
       continue;
     }
 
-    const fresh = await getLead(phone, store);
-    if (!fresh || sentDays(fresh).includes(due.day)) continue;
-    if (await hasReplied(phone, store) || await isSuppressed(phone, store)) {
-      const reason = (await hasReplied(phone, store)) ? 'replied' : 'suppressed';
-      await stopLead(phone, store, deps, reason);
-      results.push({ phone, stopped: reason });
-      continue;
-    }
-
-    let delivered;
-    try {
-      delivered = await deliver({ channel, lead: fresh, day: due.day, env, deps });
-    } catch (err) {
-      logLine(deps, 'error', `[outreach] send failed ${phone} day ${due.day} ${err.code || ''} ${err.message}`);
-      results.push({ phone, day: due.day, error: err.code || 'send-failed' });
-      continue;
-    }
-    if (!delivered || delivered.ok === false) {
-      results.push({ phone, day: due.day, skipped: delivered && delivered.reason });
-      continue;
-    }
-    if (!live || delivered.dryRun) {
-      const preview = typeof delivered.preview === 'string' ? delivered.preview : JSON.stringify(delivered.preview);
-      logLine(deps, 'log', `[outreach] dry run would send day ${due.day} ${channel} ${phone} ${preview}`);
-      results.push({ phone, day: due.day, dryRun: true });
+    const outcome = await sendStepForLead(lead, due.day, { ...deps, env, store, now });
+    results.push(outcome);
+    if (outcome && (outcome.id || outcome.dryRun)) {
       sentToday += 1;
       if (channel === 'whatsapp') whatsappSentToday += 1;
-      continue;
     }
-
-    const again = await getLead(phone, store);
-    if (!again || sentDays(again).includes(due.day)) continue;
-    const touch = {
-      day: due.day,
-      channel,
-      at: now.toISOString(),
-      messageSid: delivered.id || null,
-      status: delivered.status || 'sent',
-    };
-    const touches = [...((again.sequence && again.sequence.touches) || []), touch];
-    const finished = sequenceComplete(sentDays({ sequence: { touches } }));
-    await saveLead(phone, {
-      sequence: {
-        ...again.sequence,
-        status: finished ? 'complete' : 'active',
-        touches,
-        nextTouchOn: finished ? null : nextDueOn(again.sequence.day0At || again.sequence.startedAt, sentDays({ sequence: { touches } })),
-      },
-    }, store);
-    sentToday += 1;
-    if (channel === 'whatsapp') whatsappSentToday += 1;
-    logLine(deps, 'log', `[outreach] sent day ${due.day} ${channel} ${phone} ${touch.messageSid || ''} ${touch.status}`);
-    results.push({ phone, day: due.day, id: touch.messageSid, status: touch.status, complete: finished });
   }
 
   return { ok: true, dryRun: !live, today, cap, results };

@@ -4,11 +4,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { memoryStore } from '../netlify/functions/_shared/billing-store.js';
-import { getLead, markReplied } from '../netlify/functions/_shared/inbound-store.js';
+import { getLead, markReplied, markSitePurchased } from '../netlify/functions/_shared/inbound-store.js';
 import { outreachAuthorized } from '../netlify/functions/_shared/outreach-auth.js';
 import { handleOutreachEnrol } from '../netlify/functions/outreach-enrol.js';
 import { handleOutreachStatus } from '../netlify/functions/outreach-status.js';
-import { config as dailyConfig, handleOutreachDaily } from '../netlify/functions/outreach-daily.js';
+import { config as eveningConfig, handleOutreachEvening } from '../netlify/functions/outreach-evening.js';
+import { config as day0Config, handleOutreachDay0 } from '../netlify/functions/outreach-day0.js';
+import { handleOutreachStop } from '../netlify/functions/outreach-stop.js';
 import { runOutreachDay } from '../netlify/functions/_shared/outreach-run.js';
 import {
   addLondonDays,
@@ -113,7 +115,9 @@ test('SMS guard rejects length, non-GSM-7, em dashes, and opt-out lines', () => 
     'config/outreach-copy.json',
     'docs/OUTREACH-SEQUENCER.md',
     'shared/outreach-sequence.js',
-    'netlify/functions/outreach-daily.js',
+    'netlify/functions/outreach-evening.js',
+    'netlify/functions/outreach-day0.js',
+    'netlify/functions/outreach-stop.js',
     'netlify/functions/outreach-enrol.js',
     'netlify/functions/outreach-status.js',
     'netlify/functions/_shared/outreach-run.js',
@@ -135,26 +139,33 @@ test('daily cap and WhatsApp 250 limit', () => {
   assert.equal(canSend({ sentToday: 19, whatsappSentToday: 250, cap: 300, channel: 'sms' }).ok, true);
 });
 
-test('schedule fires at 09:00 and 10:00 UTC and sends only at 10:00 London', async () => {
-  assert.equal(dailyConfig.schedule, '0 9,10 * * *');
-  const skipped = await handleOutreachDaily(new Request('https://example.com'), {
+test('follow-ups fire at 18:00 and 19:00 UTC and send only at 19:00 London', async () => {
+  assert.equal(eveningConfig.schedule, '0 18,19 * * *');
+  assert.equal(day0Config.schedule, '*/10 * * * *');
+  const skipped = await handleOutreachEvening(new Request('https://example.com'), {
     env: liveEnv,
     store: store(),
-    now: () => new Date('2026-07-15T10:30:00.000Z'),
+    now: () => new Date('2026-07-15T19:30:00.000Z'),
   });
   assert.equal((await skipped.json()).skipped, 'outside-london-hour');
-  const winterSkip = await handleOutreachDaily(new Request('https://example.com'), {
+  const winterSkip = await handleOutreachEvening(new Request('https://example.com'), {
     env: liveEnv,
     store: store(),
-    now: () => new Date('2026-01-15T09:30:00.000Z'),
+    now: () => new Date('2026-01-15T18:30:00.000Z'),
   });
-  assert.equal((await winterSkip.json()).londonHour, 9);
-  const summer = await handleOutreachDaily(new Request('https://example.com'), {
+  assert.equal((await winterSkip.json()).londonHour, 18);
+  const summer = await handleOutreachEvening(new Request('https://example.com'), {
     env: liveEnv,
     store: store(),
-    now: () => new Date('2026-07-15T09:30:00.000Z'),
+    now: () => new Date('2026-07-15T18:30:00.000Z'),
   });
   assert.equal((await summer.json()).dryRun, false);
+  const winter = await handleOutreachEvening(new Request('https://example.com'), {
+    env: liveEnv,
+    store: store(),
+    now: () => new Date('2026-01-15T19:30:00.000Z'),
+  });
+  assert.equal((await winter.json()).dryRun, false);
 });
 
 test('auth fails closed when the secret is missing or wrong', async () => {
@@ -179,21 +190,20 @@ test('auth fails closed when the secret is missing or wrong', async () => {
   assert.equal(status.status, 403);
 });
 
-test('enrol refuses a missing preview, suppression, a reply, and a second enrol', async () => {
+test('enrol refuses a missing preview and a second enrol, and a reply does not block it', async () => {
   const leads = store();
   const missing = await enrol(leads, enrolBody({ previewUrl: '  ' }));
   assert.equal(missing.res.status, 400);
   assert.equal(missing.json.error, 'missing_preview_url');
   assert.equal(await getLead(PHONE, leads), null);
 
-  await leads.setJSON(`suppress/${PHONE}`, { phone: PHONE, at: '2026-01-01T00:00:00.000Z' });
-  const blocked = await enrol(leads, enrolBody());
-  assert.equal(blocked.json.error, 'suppressed');
-
   const repliedStore = store();
-  await markReplied(PHONE, { at: '2026-01-01T00:00:00.000Z', channel: 'sms' }, repliedStore);
+  await repliedStore.setJSON(`suppress/${PHONE}`, { phone: PHONE, at: '2026-01-01T00:00:00.000Z' });
+  await markReplied(PHONE, { at: '2026-01-01T00:00:00.000Z', channel: 'sms', optOut: true }, repliedStore);
   const replied = await enrol(repliedStore, enrolBody());
-  assert.equal(replied.json.error, 'replied');
+  assert.equal(replied.res.status, 200);
+  assert.equal(replied.json.status, 'active');
+  assert.equal((await getLead(PHONE, repliedStore)).optedOut, true);
 
   const once = store();
   const ok = await enrol(once, enrolBody());
@@ -286,48 +296,71 @@ test('Day 3 and Day 10 send once, then the lead is complete, including across BS
   assert.equal(calls.length, 3);
 });
 
-test('a reply or suppression between steps stops the lead', async () => {
+test('a reply or STOP does not stop the sequence; purchase and manual stop do', async () => {
   const replied = store();
-  await enrol(replied, enrolBody(), { now: '2026-01-05T10:00:00.000Z' });
+  await enrol(replied, enrolBody(), { now: '2026-01-05T02:00:00.000Z' });
   const calls = [];
   await runOutreachDay({
     env: liveEnv,
     store: replied,
-    now: new Date('2026-01-05T10:00:00.000Z'),
+    now: new Date('2026-01-05T02:00:00.000Z'),
     fetchImpl: twilioFetch(calls),
+    onlyDays: [0],
   });
-  await markReplied(PHONE, { at: '2026-01-06T12:00:00.000Z', channel: 'sms' }, replied);
+  await markReplied(PHONE, { at: '2026-01-06T12:00:00.000Z', channel: 'sms', optOut: true }, replied);
+  const afterStop = await getLead(PHONE, replied);
+  assert.equal(afterStop.replied, true);
+  assert.equal(afterStop.optedOut, true);
+  assert.equal(afterStop.sequence.status, 'active');
+  assert.equal(await replied.get(`suppress/${PHONE}`, { type: 'json' }), null);
   await runOutreachDay({
     env: liveEnv,
     store: replied,
-    now: new Date('2026-01-08T10:00:00.000Z'),
+    now: new Date('2026-01-08T19:00:00.000Z'),
     fetchImpl: twilioFetch(calls),
+    onlyDays: [3, 10],
   });
-  assert.equal(calls.length, 1);
-  assert.equal((await getLead(PHONE, replied)).sequence.status, 'halted');
-  assert.equal((await getLead(PHONE, replied)).sequence.haltReason, 'replied');
+  assert.equal(calls.length, 2);
+  assert.equal((await getLead(PHONE, replied)).sequence.status, 'active');
 
-  const suppressed = store();
-  await enrol(suppressed, enrolBody(), { now: '2026-01-05T10:00:00.000Z' });
-  const sms = [];
+  const bought = store();
+  await enrol(bought, enrolBody({ site_id: 'site-bought' }), { now: '2026-01-05T02:00:00.000Z' });
   await runOutreachDay({
     env: liveEnv,
-    store: suppressed,
-    now: new Date('2026-01-05T10:00:00.000Z'),
-    fetchImpl: twilioFetch(sms),
+    store: bought,
+    now: new Date('2026-01-05T02:00:00.000Z'),
+    fetchImpl: twilioFetch([]),
+    onlyDays: [0],
   });
-  await suppressed.setJSON(`suppress/${PHONE}`, { phone: PHONE, at: '2026-01-06T00:00:00.000Z' });
+  const stopped = await markSitePurchased('site-bought', { plan: 'one_off', source: 'checkout' }, bought);
+  assert.equal(stopped[0].purchased, true);
+  assert.equal(stopped[0].sequence.status, 'stopped');
+  assert.equal(stopped[0].sequence.haltReason, 'purchased');
+  const afterBuy = [];
   await runOutreachDay({
     env: liveEnv,
-    store: suppressed,
-    now: new Date('2026-01-08T10:00:00.000Z'),
-    fetchImpl: twilioFetch(sms),
+    store: bought,
+    now: new Date('2026-01-08T19:00:00.000Z'),
+    fetchImpl: twilioFetch(afterBuy),
+    onlyDays: [3, 10],
   });
-  assert.equal(sms.length, 1);
-  const lead = await getLead(PHONE, suppressed);
-  assert.equal(lead.sequence.status, 'halted');
-  assert.equal(lead.suppressed, true);
-  assert.equal(lead.sequence.touches.length, 1);
+  assert.equal(afterBuy.length, 0);
+
+  const manual = store();
+  await enrol(manual, enrolBody(), { now: '2026-01-05T02:00:00.000Z' });
+  const stopRes = await handleOutreachStop(new Request('https://taylor-marriott.com/api/outreach-stop', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-outreach-admin-secret': SECRET },
+    body: JSON.stringify({ phone: PHONE }),
+  }), { env: { OUTREACH_ADMIN_SECRET: SECRET }, store: manual });
+  assert.equal(stopRes.status, 200);
+  assert.equal((await getLead(PHONE, manual)).sequence.haltReason, 'manual');
+  const denied = await handleOutreachStop(new Request('https://taylor-marriott.com/api/outreach-stop', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ phone: PHONE }),
+  }), { env: {}, store: manual });
+  assert.equal(denied.status, 403);
 });
 
 test('daily cap stops the third lead and a rerun does not exceed it', async () => {
@@ -458,6 +491,88 @@ test('email goes through the Gmail mailer and dry run does not call it', async (
   const lead = await getLead(PHONE, leads);
   assert.equal(lead.sequence.touches[0].messageSid, 'gmail-abc');
   assert.equal(lead.sequence.touches[0].channel, 'email');
+});
+
+test('Day 0 sends at enrolment, including outside the 19:00 window', async () => {
+  const leads = store();
+  const calls = [];
+  const logs = [];
+  const res = await handleOutreachEnrol(enrolRequest(enrolBody()), {
+    env: liveEnv,
+    store: leads,
+    now: () => new Date('2026-01-15T02:00:00.000Z'),
+    fetchImpl: twilioFetch(calls),
+    log: (line) => logs.push(line),
+  });
+  const body = await res.json();
+  assert.equal(res.status, 200);
+  assert.equal(calls.length, 1);
+  assert.equal(body.day0.day, 0);
+  assert.equal(body.day0.id, 'SM_test');
+  assert.equal((await getLead(PHONE, leads)).sequence.touches.length, 1);
+  const again = [];
+  await handleOutreachDay0(new Request('https://example.com'), {
+    env: liveEnv,
+    store: leads,
+    now: () => new Date('2026-01-15T02:10:00.000Z'),
+    fetchImpl: twilioFetch(again),
+  });
+  assert.equal(again.length, 0);
+  assert.equal(/stop to opt out/i.test(logs.join('\n')), false);
+});
+
+test('a Twilio STOP block is logged and the next lead still sends', async () => {
+  const leads = store();
+  await enrol(leads, enrolBody({ phone: '+447911000021' }), { now: '2026-01-15T02:00:00.000Z' });
+  await enrol(leads, enrolBody({ phone: '+447911000022' }), { now: '2026-01-15T02:00:00.000Z' });
+  const calls = [];
+  const logs = [];
+  await runOutreachDay({
+    env: liveEnv,
+    store: leads,
+    now: new Date('2026-01-15T02:00:00.000Z'),
+    onlyDays: [0],
+    log: (line) => logs.push(line),
+    fetchImpl: async (url, init) => {
+      calls.push(init.body);
+      const to = new URLSearchParams(init.body).get('To');
+      if (to === '+447911000021') {
+        return new Response(JSON.stringify({
+          code: 21610,
+          message: 'Attempt to send to unsubscribed recipient',
+        }), { status: 400 });
+      }
+      return new Response(JSON.stringify({ sid: 'SM_next', status: 'queued' }), { status: 201 });
+    },
+  });
+  assert.equal(calls.length, 2);
+  assert.equal((await getLead('+447911000021', leads)).sequence.touches.length, 0);
+  assert.equal((await getLead('+447911000022', leads)).sequence.touches[0].messageSid, 'SM_next');
+  assert.match(logs.join('\n'), /21610/);
+  assert.match(logs.join('\n'), /Continuing/);
+});
+
+test('an already paid site is enrolled stopped and Day 0 is not sent', async () => {
+  const leads = store();
+  const accounts = store();
+  await accounts.setJSON('cs_paid', {
+    id: 'cs_paid',
+    netlifySiteId: 'example-site',
+    stripeStatus: 'active',
+    plan: 'one_off',
+  });
+  const calls = [];
+  const res = await handleOutreachEnrol(enrolRequest(enrolBody()), {
+    env: liveEnv,
+    store: leads,
+    accounts,
+    now: () => new Date('2026-01-15T02:00:00.000Z'),
+    fetchImpl: twilioFetch(calls),
+  });
+  const body = await res.json();
+  assert.equal(body.purchased, true);
+  assert.equal(body.status, 'stopped');
+  assert.equal(calls.length, 0);
 });
 
 test('status lists step, next due date, and stop flags', async () => {

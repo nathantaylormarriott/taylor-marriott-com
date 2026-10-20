@@ -1,6 +1,8 @@
 /**
  * Day 0 / Day 3 / Day 10 timing and copy checks.
  * Calendar days are Europe/London, so GMT and BST do not shift the due date.
+ * dueStep uses the London calendar date. Day 0 can send at any hour.
+ * The evening job sends Day 3 and Day 10 only when the London hour is 19.
  * SMS stays inside the 159 GSM-7 septet cap. Nothing here appends an opt-out line.
  */
 import { DateTime } from 'luxon';
@@ -11,7 +13,7 @@ export const LONDON = 'Europe/London';
 export const STEP_DAYS = [0, 3, 10];
 export const WHATSAPP_DAILY_LIMIT = 250;
 export const DEFAULT_DAILY_CAP = 20;
-export const SEND_HOUR_LONDON = 10;
+export const SEND_HOUR_LONDON = 19;
 
 const OPT_OUT_LINE = /stop to opt out|reply\s+stop|text\s+stop|send\s+stop|\bopt[\s-]*out\b/i;
 

@@ -11,9 +11,19 @@ import { applySiteChange, writeClientPauseSwitch } from './_shared/billing-actio
 import { envFlag, readEnv } from './_shared/billing-env.js';
 import { netlifyApi } from './_shared/netlify-sites.js';
 import { sendCheckoutPaymentEmails, sendInvoicePaymentFailedEmail, sendSubscriptionLapsingEmail, subscriptionLapsingFromUpdatedEvent } from './_shared/checkout-mail.js';
+import { markSitePurchased } from './_shared/inbound-store.js';
 
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+
+async function stopOutreachForPurchase(siteId, details) {
+  if (!siteId) return;
+  try {
+    await markSitePurchased(siteId, details);
+  } catch (err) {
+    console.error('[stripe-webhook] outreach purchase stop', err.message);
+  }
+}
 
 function liveSiteDeps() {
   const token = readEnv('NETLIFY_AUTH_TOKEN');
@@ -115,6 +125,13 @@ async function handleCheckoutCompleted(event, base) {
   } catch (err) {
     console.error('[stripe-webhook] billing account', err);
     return json({ error: 'could not store billing account' }, 500);
+  }
+  const bought = checkoutAccountFromEvent(event);
+  if (bought && bought.netlifySiteId) {
+    await stopOutreachForPurchase(bought.netlifySiteId, {
+      plan: bought.plan,
+      source: 'checkout',
+    });
   }
   try {
     await sendCheckoutPaymentEmails(event);
@@ -255,6 +272,13 @@ async function handleSubscriptionDeleted(event) {
 
 async function handleSubscriptionUpdated(event) {
   const status = await rememberSubscriptionStatus(event);
+  const purchase = subscriptionStatusFromEvent(event);
+  if (purchase && purchase.status === 'active' && purchase.netlifySiteId) {
+    await stopOutreachForPurchase(purchase.netlifySiteId, {
+      plan: purchase.plan,
+      source: 'subscription',
+    });
+  }
   const info = subscriptionLapsingFromUpdatedEvent(event);
   if (info) {
     try {

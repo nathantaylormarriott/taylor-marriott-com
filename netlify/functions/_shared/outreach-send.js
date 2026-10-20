@@ -53,6 +53,7 @@ export async function sendOutreachWhatsapp({ to, contentSid, variables, env, fet
   if (!res.ok) {
     const err = new Error(data.message || `Twilio ${res.status}`);
     err.code = 'TWILIO';
+    err.twilioCode = data.code || null;
     throw err;
   }
   return {

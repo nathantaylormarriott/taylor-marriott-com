@@ -1,7 +1,7 @@
 /**
- * Daily send. Cron is UTC, so it fires at 09:00 UTC (10:00 BST) and 10:00 UTC
- * (10:00 GMT). The handler sends only when the Europe/London hour is 10, which
- * is one window per day in both GMT and BST.
+ * Day 3 and Day 10. Cron is UTC, so it fires at 18:00 UTC (19:00 BST) and
+ * 19:00 UTC (19:00 GMT), every day including weekends. The handler sends only
+ * when the Europe/London hour is 19.
  */
 import { outreachStore } from './_shared/inbound-store.js';
 import { runOutreachDay } from './_shared/outreach-run.js';
@@ -14,11 +14,11 @@ function json(body, status = 200) {
   });
 }
 
-export async function handleOutreachDaily(request, deps = {}) {
+export async function handleOutreachEvening(request, deps = {}) {
   const now = typeof deps.now === 'function' ? deps.now() : new Date();
   const hour = londonHour(now);
   if (hour !== SEND_HOUR_LONDON) {
-    console.log(`[outreach-daily] skip. London hour is ${hour}. Sends run at 10:00 Europe/London.`);
+    console.log(`[outreach-evening] skip. London hour is ${hour}. Follow-ups run at 19:00 Europe/London.`);
     return json({ ok: true, skipped: 'outside-london-hour', londonHour: hour });
   }
   const result = await runOutreachDay({
@@ -29,12 +29,13 @@ export async function handleOutreachDaily(request, deps = {}) {
     sendMail: deps.sendMail,
     log: deps.log,
     whatsappDailyLimit: deps.whatsappDailyLimit,
+    onlyDays: [3, 10],
   });
   return json(result);
 }
 
-export default async (request) => handleOutreachDaily(request);
+export default async (request) => handleOutreachEvening(request);
 
 export const config = {
-  schedule: '0 9,10 * * *',
+  schedule: '0 18,19 * * *',
 };

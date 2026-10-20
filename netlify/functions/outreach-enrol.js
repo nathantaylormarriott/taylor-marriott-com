@@ -29,6 +29,10 @@ export async function handleOutreachEnrol(request, deps = {}) {
     store: deps.store || outreachStore(),
     now: deps.now,
     log: deps.log,
+    fetchImpl: deps.fetchImpl,
+    sendMail: deps.sendMail,
+    accounts: deps.accounts,
+    whatsappDailyLimit: deps.whatsappDailyLimit,
   });
   return json(result.body, result.status);
 }

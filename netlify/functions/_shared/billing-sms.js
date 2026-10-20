@@ -34,6 +34,7 @@ export async function sendBillingSms({ to, body, env = process.env, fetchImpl = 
   if (!res.ok) {
     const err = new Error(data.message || `Twilio ${res.status}`);
     err.code = 'TWILIO';
+    err.twilioCode = data.code || null;
     throw err;
   }
   return { sid: data.sid || null, status: data.status || 'sent', to, from };
