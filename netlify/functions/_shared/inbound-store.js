@@ -6,9 +6,10 @@
  *   lead/{E.164}           contact the sequencer reads
  *   suppress/{E.164}       block every future send on every channel
  *
- * A reply sets lead.replied and lead.repliedAt and halts lead.sequence.
- * An opt-out also writes the suppression list. isSuppressed is that list,
- * so a later saveLead for the same number stays blocked.
+ * A reply sets lead.replied and lead.repliedAt. It does not stop the sequence.
+ * STOP and "not interested" set lead.optedOut so Nathan can see them. They do
+ * not write the suppression list and they do not block a later send.
+ * The sequence stops when the site is purchased, or when an admin stops it.
  */
 import { getStore } from '@netlify/blobs';
 import { accountsStore } from './billing-store.js';
@@ -130,13 +131,14 @@ export async function hasReplied(phone, storeImpl = outreachStore()) {
   return Boolean(lead && lead.replied === true);
 }
 
-function haltedSequence(existing, at, reason) {
+function purchasedSequence(existing, at) {
   return {
     ...emptySequence(),
     ...(existing && existing.sequence),
-    status: 'halted',
-    haltReason: reason,
+    status: 'stopped',
+    haltReason: 'purchased',
     haltedAt: (existing && existing.sequence && existing.sequence.haltedAt) || at,
+    nextTouchOn: null,
   };
 }
 
@@ -148,7 +150,6 @@ export async function saveLead(phone, patch = {}, storeImpl = outreachStore()) {
     throw err;
   }
   const existing = (await getLead(id, storeImpl)) || emptyLead(id);
-  const suppressed = existing.suppressed === true || (await isSuppressed(id, storeImpl));
   const sequence = {
     ...emptySequence(),
     ...(existing.sequence || {}),
@@ -164,16 +165,15 @@ export async function saveLead(phone, patch = {}, storeImpl = outreachStore()) {
   if (existing.replied === true || next.replied === true) {
     next.replied = true;
     next.repliedAt = existing.repliedAt || next.repliedAt || next.updatedAt;
-    next.sequence = haltedSequence(next, next.repliedAt, next.sequence.haltReason || 'replied');
   }
-  if (suppressed || next.optedOut === true) {
-    next.suppressed = true;
-    if (suppressed) next.optedOut = next.optedOut === true || existing.optedOut === true;
-    next.sequence = haltedSequence(
-      next,
-      next.optedOutAt || next.repliedAt || next.updatedAt,
-      next.optedOut ? 'opt-out' : 'suppressed',
-    );
+  if (existing.optedOut === true || next.optedOut === true) {
+    next.optedOut = true;
+    next.optedOutAt = existing.optedOutAt || next.optedOutAt || next.updatedAt;
+  }
+  if (existing.purchased === true || next.purchased === true) {
+    next.purchased = true;
+    next.purchasedAt = existing.purchasedAt || next.purchasedAt || next.updatedAt;
+    next.sequence = purchasedSequence(next, next.purchasedAt);
   }
   await storeImpl.setJSON(leadKey(id), next);
   return next;
@@ -194,22 +194,59 @@ export async function markReplied(phone, details = {}, storeImpl = outreachStore
       lastMessageSid: details.messageSid || existing.lastMessageSid || null,
       optedOut: optOut || existing.optedOut === true,
       optedOutAt: optOut ? existing.optedOutAt || at : existing.optedOutAt || null,
-      suppressed: optOut || existing.suppressed === true,
     },
     storeImpl,
   );
-  if (optOut) {
-    const prior = await readJson(storeImpl, suppressKey(id));
-    if (!prior) {
-      await storeImpl.setJSON(suppressKey(id), {
-        phone: id,
-        at,
-        messageSid: details.messageSid || null,
-        channel: details.channel || null,
-      });
-    }
-  }
   return lead;
+}
+
+export async function findActiveSiteAccount(siteId, storeImpl = accountsStore()) {
+  const id = String(siteId || '').trim();
+  if (!id || !storeImpl || typeof storeImpl.list !== 'function') return null;
+  const listed = await storeImpl.list();
+  const blobs = (listed && listed.blobs) || [];
+  for (const blob of blobs) {
+    const account = await storeImpl.get(blob.key, { type: 'json' });
+    if (!account) continue;
+    const site = account.netlifySiteId || account.siteId || null;
+    if (site === id && account.stripeStatus === 'active') return account;
+  }
+  return null;
+}
+
+export async function markSitePurchased(siteId, details = {}, storeImpl = outreachStore()) {
+  const id = String(siteId || '').trim();
+  if (!id) return [];
+  const at = details.at || new Date().toISOString();
+  const leads = await listLeads(storeImpl);
+  const updated = [];
+  for (const lead of leads) {
+    if (String(lead.siteId || '') !== id) continue;
+    updated.push(await saveLead(lead.phone, {
+      purchased: true,
+      purchasedAt: lead.purchasedAt || at,
+      purchasePlan: details.plan || lead.purchasePlan || null,
+      purchaseSource: details.source || lead.purchaseSource || null,
+    }, storeImpl));
+  }
+  return updated;
+}
+
+export async function stopLeadManually(phone, details = {}, storeImpl = outreachStore()) {
+  const id = toE164(phone);
+  if (!id) return null;
+  const existing = await getLead(id, storeImpl);
+  if (!existing) return null;
+  const at = details.at || new Date().toISOString();
+  return saveLead(id, {
+    sequence: {
+      ...(existing.sequence || {}),
+      status: 'stopped',
+      haltReason: 'manual',
+      haltedAt: (existing.sequence && existing.sequence.haltedAt) || at,
+      nextTouchOn: null,
+    },
+  }, storeImpl);
 }
 
 export async function listLeads(storeImpl = outreachStore()) {

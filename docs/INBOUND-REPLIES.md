@@ -1,6 +1,6 @@
 # Inbound SMS and WhatsApp replies
 
-Outreach texts a tradesperson from +447378961404. The same number sends the approved WhatsApp template `tm_website_preview_v2`. The sequence is Day 0 (preview), Day 3 (nudge), Day 10 (final). Any reply stops that sequence. An opt-out also blocks every future send on SMS and WhatsApp.
+Outreach texts a tradesperson from +447378961404. The same number sends the approved WhatsApp template `tm_website_preview_v2`. The sequence is Day 0 (preview, as soon as the lead is enrolled), Day 3 (nudge at 19:00 London), Day 10 (final, same hour). A reply does not stop that sequence. STOP and "not interested" are stored as `optedOut` and emailed to Nathan. They do not join a suppression list and they do not block the next send. The sequence stops when the website is bought, or when Nathan stops it. See `docs/OUTREACH-SEQUENCER.md`.
 
 `POST /api/twilio-inbound` takes Twilio's inbound webhook for both channels. It checks `X-Twilio-Signature` with `TWILIO_AUTH_TOKEN` against the public URL (`x-forwarded-proto` and `x-forwarded-host`). A missing token or a bad signature returns 403 and stores nothing. The response is an empty TwiML `<Response/>`. This function does not message the sender. Twilio still handles SMS STOP on its side.
 
@@ -28,20 +28,22 @@ Live email uses the existing Gmail mailer (`GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAU
 
 Helpers in `netlify/functions/_shared/inbound-store.js`:
 
-- `isSuppressed(phone)` is true when the number is on the suppression list. Do not send on any channel.
-- `hasReplied(phone)` is true after any inbound message. Do not send the next touch.
-- `markReplied(phone, details)` sets `replied: true` and `repliedAt` (first reply time is kept).
+- `hasReplied(phone)` is true after any inbound message. The sequencer still sends.
+- `markReplied(phone, details)` sets `replied: true` and `repliedAt` (first reply time is kept). An opt-out also sets `optedOut`. It does not write a suppression row and it does not change `sequence.status`.
+- `isSuppressed(phone)` reads any old suppression row. New opt-outs do not add one, and the sequencer does not consult it.
 - `getLead(phone)` / `saveLead(phone, patch)` / `listLeads()`.
+- `markSitePurchased(siteId, details)` stops every lead with that Netlify site id.
 
 `saveLead` is where Day 0 should write `businessName`, `previewUrl`, and `placeId` before the first text. The notify email includes those when they are on the lead. If they are missing, a billing account with the same phone is used (`businessName`, `placeId`, `netlifySiteName`).
 
 Lead fields:
 
-- `replied`, `repliedAt` halt the sequence.
-- `sequence.status` is `idle`, then the sequencer may set `active`. A reply forces `halted`.
-- `sequence.haltReason` is `replied`, `opt-out`, or `suppressed`.
+- `replied`, `repliedAt` record that someone wrote back. They do not halt the sequence.
+- `optedOut`, `optedOutAt` record STOP or "not interested" for Nathan. They do not halt the sequence.
+- `sequence.status` is `idle`, then `active` after enrolment. Purchase or a manual stop sets `stopped`. Day 10 sets `complete`.
+- `sequence.haltReason` is `purchased` or `manual`.
 - `sequence.touches` is for `{ day: 0 | 3 | 10, channel, at, messageSid }`.
-- `sequence.nextTouchOn` is the next London date the sequencer should send, or null when halted.
-- `suppressed` mirrors the suppression list.
+- `sequence.nextTouchOn` is the next London date the sequencer should send, or null when stopped or complete.
+- `purchased` is set from a paid website checkout or an active subscription for this `siteId`.
 
-Opt-out phrases (whole message, case insensitive, light filler allowed): STOP, STOPALL, UNSUBSCRIBE, CANCEL, END, QUIT, "stop texting", "not interested", "remove me", and close variants such as "please stop texting me". A longer note that only contains the word stop, such as "stop by tomorrow?", is a normal reply: the sequence halts, and the number is not suppressed.
+Opt-out phrases (whole message, case insensitive, light filler allowed): STOP, STOPALL, UNSUBSCRIBE, CANCEL, END, QUIT, "stop texting", "not interested", "remove me", and close variants such as "please stop texting me". A longer note that only contains the word stop, such as "stop by tomorrow?", is a normal reply: `optedOut` stays false, and the sequence keeps going either way. Twilio may still block SMS to a number that texted STOP. The sequencer logs that send error and continues.

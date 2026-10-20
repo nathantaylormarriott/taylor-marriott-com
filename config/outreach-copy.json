@@ -1,0 +1,70 @@
+{
+  "steps": [
+    {
+      "day": 0,
+      "emailSubject": "A website for {business}",
+      "emailText": "Hey {business}\n\nNathan here, I've built a website specifically for your business!\n\n{link}\n\nTake a look and let me know what you think? happy to make any changes and get it ready to launch.\n\nFeel free to call me 07831798112 or visit www.taylor-marriott.com",
+      "smsVariants": [
+        {
+          "id": "a",
+          "maxSeptets": 159,
+          "text": "Hey {business}, Nathan here. I've built a website for your business! {link} Let me know what you think? Happy to make changes."
+        },
+        {
+          "id": "b",
+          "maxSeptets": 159,
+          "text": "Hey {business}, Nathan here, I've built a website for your business! {link} Take a look and let me know what you think?"
+        },
+        {
+          "id": "c",
+          "maxSeptets": 159,
+          "text": "Hey {business}, Nathan here. I've built a website specifically for your business! {link} Let me know what you think?"
+        },
+        {
+          "id": "d",
+          "maxSeptets": 306,
+          "text": "Hey {business}\n\nNathan here, I've built a website specifically for your business!\n\n{link}\n\nTake a look and let me know what you think? happy to make any changes and get it ready to launch.\n\nFeel free to call me 07831798112 or visit www.taylor-marriott.com"
+        },
+        {
+          "id": "e",
+          "maxSeptets": 306,
+          "business": "there",
+          "text": "Hey {business}\n\nNathan here, I've built a website specifically for your business!\n\n{link}\n\nTake a look and let me know what you think? happy to make any changes and get it ready to launch.\n\nFeel free to call me 07831798112 or visit www.taylor-marriott.com"
+        }
+      ],
+      "whatsappTemplate": "tm_website_preview_v2",
+      "whatsappContentSid": "HXb468c7193bf6dcd4ac1f48dbe06c46c6",
+      "whatsappContentSidEnv": "WHATSAPP_CONTENT_SID_DAY0",
+      "whatsappVariables": {
+        "1": "{business}",
+        "2": "{link}"
+      }
+    },
+    {
+      "day": 3,
+      "notice": "PLACEHOLDER COPY. Not final. Replace this step before OUTREACH_SEND_LIVE=1. Do not add an opt-out line.",
+      "sms": "PLACEHOLDER day 3 nudge {business} {link}",
+      "emailSubject": "PLACEHOLDER nudge for {business}",
+      "emailText": "PLACEHOLDER day 3. Nudge for {business}: {link}",
+      "whatsappTemplate": "PLACEHOLDER day 3 template",
+      "whatsappContentSidEnv": "WHATSAPP_CONTENT_SID_DAY3",
+      "whatsappVariables": {
+        "1": "{business}",
+        "2": "{link}"
+      }
+    },
+    {
+      "day": 10,
+      "notice": "PLACEHOLDER COPY. Not final. Replace this step before OUTREACH_SEND_LIVE=1. Do not add an opt-out line.",
+      "sms": "PLACEHOLDER preview coming down soon {business} {link}",
+      "emailSubject": "PLACEHOLDER preview coming down soon for {business}",
+      "emailText": "PLACEHOLDER day 10. Preview coming down soon for {business}: {link}",
+      "whatsappTemplate": "PLACEHOLDER day 10 template",
+      "whatsappContentSidEnv": "WHATSAPP_CONTENT_SID_DAY10",
+      "whatsappVariables": {
+        "1": "{business}",
+        "2": "{link}"
+      }
+    }
+  ]
+}

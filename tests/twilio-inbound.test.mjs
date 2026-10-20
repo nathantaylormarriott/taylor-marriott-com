@@ -177,7 +177,7 @@ test('MessageSid is idempotent and does not email twice', async () => {
   assert.equal(await hasReplied('+447911123456', store), true);
 });
 
-test('opt-out phrases suppress, ordinary stop sentences do not', () => {
+test('opt-out phrases are recognised, ordinary stop sentences are not', () => {
   const yes = [
     'STOP',
     'stop.',
@@ -211,20 +211,25 @@ test('opt-out phrases suppress, ordinary stop sentences do not', () => {
   for (const body of no) assert.equal(isOptOut(body), false, body);
 });
 
-test('opt-out writes the suppression list; a normal reply only sets replied', async () => {
+test('opt-out is flagged for Nathan and does not suppress or halt', async () => {
   const store = useStore();
+  await saveLead('+447900000001', {
+    businessName: 'Roof Co',
+    sequence: { status: 'active', touches: [{ day: 0 }], nextTouchOn: '2026-10-23' },
+  }, store);
   const opt = await post(
     baseParams({ MessageSid: 'SM-stop', Body: 'STOP', From: '+447900000001' }),
     { store, live: false },
   );
   assert.equal(opt.res.status, 200);
-  assert.equal(await isSuppressed('+447900000001', store), true);
-  assert.equal(await isSuppressed('07900000001', store), true);
+  assert.equal(await isSuppressed('+447900000001', store), false);
+  assert.equal(await isSuppressed('07900000001', store), false);
   assert.equal(await hasReplied('+447900000001', store), true);
   const stopped = await getLead('+447900000001', store);
   assert.equal(stopped.replied, true);
-  assert.equal(stopped.sequence.status, 'halted');
-  assert.equal(stopped.sequence.haltReason, 'opt-out');
+  assert.equal(stopped.optedOut, true);
+  assert.equal(stopped.sequence.status, 'active');
+  assert.equal(stopped.sequence.touches.length, 1);
 
   await post(
     baseParams({ MessageSid: 'SM-chat', Body: 'stop by tomorrow?', From: '+447900000002' }),
@@ -234,20 +239,20 @@ test('opt-out writes the suppression list; a normal reply only sets replied', as
   assert.equal(await isSuppressed('+447900000002', store), false);
   const chatting = await getLead('+447900000002', store);
   assert.equal(chatting.optedOut, false);
-  assert.equal(chatting.sequence.status, 'halted');
-  assert.equal(chatting.sequence.haltReason, 'replied');
+  assert.equal(chatting.sequence.status, 'idle');
 
-  const revived = await saveLead(
+  const kept = await saveLead(
     '+447900000002',
     { sequence: { status: 'active', nextTouchOn: '2026-10-23' } },
     store,
   );
-  assert.equal(revived.sequence.status, 'halted');
-  assert.equal(revived.replied, true);
+  assert.equal(kept.sequence.status, 'active');
+  assert.equal(kept.replied, true);
 
   await markReplied('+447900000003', { at: NOW, channel: 'sms', messageSid: 'SM-manual' }, store);
   assert.equal(await hasReplied('+44 7900 000003', store), true);
   assert.equal(await isSuppressed('+447900000003', store), false);
+  assert.equal((await getLead('+447900000003', store)).optedOut, false);
 });
 
 test('notify live includes lead profile; notify off only logs', async () => {
