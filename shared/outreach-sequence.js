@@ -3,7 +3,9 @@
  * Calendar days are Europe/London, so GMT and BST do not shift the due date.
  * dueStep uses the London calendar date. Day 0 can send at any hour.
  * The evening job sends Day 3 and Day 10 only when the London hour is 19.
- * SMS stays inside the 159 GSM-7 septet cap. Nothing here appends an opt-out line.
+ * Day 0 SMS walks an ordered fallback. Variants a to c must fit in 159 GSM-7
+ * septets. Variants d and e may use two concatenated segments, 306 septets.
+ * Day 3 and Day 10 stay at 159. Nothing here appends an opt-out line.
  */
 import { DateTime } from 'luxon';
 import outreachCopy from '../config/outreach-copy.json' with { type: 'json' };
@@ -14,6 +16,37 @@ export const STEP_DAYS = [0, 3, 10];
 export const WHATSAPP_DAILY_LIMIT = 250;
 export const DEFAULT_DAILY_CAP = 20;
 export const SEND_HOUR_LONDON = 19;
+export const SMS_TWO_SEGMENT_LIMIT = 306;
+
+const PUNCT_FOLDS = [
+  ['\u2014', '-'],
+  ['\u2013', '-'],
+  ['\u2018', "'"],
+  ['\u2019', "'"],
+  ['\u201C', '"'],
+  ['\u201D', '"'],
+  ['\u00A0', ' '],
+  ['\u2026', '...'],
+];
+
+const LETTER_FOLDS = {
+  À: 'A', Á: 'A', Â: 'A', Ã: 'A', Ä: 'A', Å: 'A',
+  à: 'a', á: 'a', â: 'a', ã: 'a', ä: 'a', å: 'a',
+  È: 'E', É: 'E', Ê: 'E', Ë: 'E',
+  è: 'e', é: 'e', ê: 'e', ë: 'e',
+  Ì: 'I', Í: 'I', Î: 'I', Ï: 'I',
+  ì: 'i', í: 'i', î: 'i', ï: 'i',
+  Ò: 'O', Ó: 'O', Ô: 'O', Õ: 'O', Ö: 'O',
+  ò: 'o', ó: 'o', ô: 'o', õ: 'o', ö: 'o',
+  Ù: 'U', Ú: 'U', Û: 'U', Ü: 'U',
+  ù: 'u', ú: 'u', û: 'u', ü: 'u',
+  Ñ: 'N', ñ: 'n',
+  Ç: 'C', ç: 'c',
+  ß: 'ss',
+  Æ: 'AE', æ: 'ae',
+  Ø: 'O', ø: 'o',
+  Ý: 'Y', ý: 'y', ÿ: 'y',
+};
 
 const OPT_OUT_LINE = /stop to opt out|reply\s+stop|text\s+stop|send\s+stop|\bopt[\s-]*out\b/i;
 
@@ -87,20 +120,78 @@ export function copyProblems(text) {
   return problems;
 }
 
-export function checkSmsBody(body) {
+/** 159 or fewer is one segment. 160 to 306 is two. Over 306 is not sent. */
+export function smsSegmentCount(septets) {
+  if (septets == null) return null;
+  if (septets <= SMS_SEPTET_LIMIT) return 1;
+  if (septets <= SMS_TWO_SEGMENT_LIMIT) return 2;
+  return null;
+}
+
+/**
+ * Fold punctuation and Latin letters to close ASCII. Characters with no
+ * equivalent stay in the string so the GSM-7 check fails and the next SMS
+ * variant can be tried. This does not drop characters.
+ */
+export function foldToAscii(value) {
+  let text = String(value ?? '');
+  for (const [from, to] of PUNCT_FOLDS) text = text.split(from).join(to);
+  let out = '';
+  for (const ch of text) out += Object.prototype.hasOwnProperty.call(LETTER_FOLDS, ch) ? LETTER_FOLDS[ch] : ch;
+  return out.replace(/[ \t]+/g, ' ').trim();
+}
+
+/** SMS only. Email and WhatsApp keep the full preview URL. */
+export function smsPreviewLink(url) {
+  return String(url ?? '').trim().replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+}
+
+export function checkSmsBody(body, maxSeptets = SMS_SEPTET_LIMIT) {
   const text = String(body ?? '').replace(/[ \t]+/g, ' ').trim();
   const problems = copyProblems(text);
-  if (problems.length) return { ok: false, body: text, reason: problems[0] };
+  if (problems.length) return { ok: false, body: text, reason: problems[0], septets: null, segments: null };
   const septets = gsmSeptetLength(text);
-  if (septets == null) return { ok: false, body: text, reason: 'not-gsm7' };
-  if (septets > SMS_SEPTET_LIMIT) {
-    return { ok: false, body: text, reason: 'too-long', septets };
+  if (septets == null) return { ok: false, body: text, reason: 'not-gsm7', septets: null, segments: null };
+  if (septets > maxSeptets) {
+    return { ok: false, body: text, reason: 'too-long', septets, segments: null };
   }
-  return { ok: true, body: text, septets };
+  return { ok: true, body: text, septets, segments: smsSegmentCount(septets) };
+}
+
+function renderSingleSms(template, vars, maxSeptets) {
+  const checked = checkSmsBody(fillTemplate(template, vars), maxSeptets);
+  return { ...checked, variant: null, maxSeptets };
+}
+
+function renderDay0Sms(row, vars) {
+  const business = foldToAscii(vars.business);
+  const link = foldToAscii(smsPreviewLink(vars.link));
+  const variants = row.smsVariants || [];
+  let last = { ok: false, body: '', reason: 'too-long', septets: null, segments: null };
+  for (const variant of variants) {
+    const name = variant.business != null ? foldToAscii(variant.business) : business;
+    const checked = checkSmsBody(
+      fillTemplate(variant.text, { business: name, link }),
+      variant.maxSeptets || SMS_SEPTET_LIMIT,
+    );
+    if (checked.ok) {
+      return {
+        ...checked,
+        variant: variant.id,
+        maxSeptets: variant.maxSeptets || SMS_SEPTET_LIMIT,
+      };
+    }
+    last = checked;
+  }
+  return { ...last, variant: null, maxSeptets: null };
 }
 
 export function renderSms(day, vars, copy = outreachCopy) {
-  return checkSmsBody(fillTemplate(stepCopy(day, copy).sms, vars));
+  const row = stepCopy(day, copy);
+  if (day === 0 && Array.isArray(row.smsVariants) && row.smsVariants.length) {
+    return renderDay0Sms(row, vars);
+  }
+  return renderSingleSms(row.sms, vars, SMS_SEPTET_LIMIT);
 }
 
 export function renderEmail(day, vars, copy = outreachCopy) {
@@ -130,6 +221,7 @@ export function renderWhatsapp(day, vars, copy = outreachCopy) {
       variables,
       reason: problems[0],
       template: row.whatsappTemplate,
+      contentSid: row.whatsappContentSid || '',
       contentSidEnv: row.whatsappContentSidEnv,
     };
   }
@@ -137,6 +229,7 @@ export function renderWhatsapp(day, vars, copy = outreachCopy) {
     ok: true,
     variables,
     template: row.whatsappTemplate,
+    contentSid: row.whatsappContentSid || '',
     contentSidEnv: row.whatsappContentSidEnv,
   };
 }

@@ -70,6 +70,7 @@ export function leadView(lead, suppressed) {
     stopped,
     stopReason: (lead.sequence && lead.sequence.haltReason) || null,
     status: (lead.sequence && lead.sequence.status) || 'idle',
+    smsFlag: lead.smsFlag || null,
   };
 }
 
@@ -88,7 +89,9 @@ function copyError(channel, vars) {
   if (channel === 'sms') {
     for (const day of [0, 3, 10]) {
       const sms = renderSms(day, vars);
-      if (!sms.ok) return { day, channel, reason: sms.reason, septets: sms.septets };
+      if (sms.ok) continue;
+      if (sms.reason === 'too-long' || sms.reason === 'not-gsm7') continue;
+      return { day, channel, reason: sms.reason, septets: sms.septets };
     }
     return null;
   }
@@ -248,8 +251,17 @@ export async function stopOutreachLead(body, deps = {}) {
   return { status: 200, body: { ok: true, stopped: [next.phone], reason: 'manual' } };
 }
 
-function contentSid(env, name) {
-  return String(readEnv(name, env) || '').trim();
+function contentSid(env, rendered) {
+  const fromEnv = String(readEnv(rendered.contentSidEnv, env) || '').trim();
+  if (fromEnv) return fromEnv;
+  return String(rendered.contentSid || '').trim();
+}
+
+function smsDetail(delivered) {
+  if (!delivered || !delivered.variant) return '';
+  const segments = delivered.segments;
+  const label = segments === 1 ? 'segment' : 'segments';
+  return ` variant ${delivered.variant} ${delivered.septets} septets ${segments} ${label}`;
 }
 
 async function deliver({ channel, lead, day, env, deps }) {
@@ -257,19 +269,50 @@ async function deliver({ channel, lead, day, env, deps }) {
   if (channel === 'sms') {
     const sms = renderSms(day, vars);
     if (!sms.ok) {
-      logLine(deps, 'error', `[outreach] skip sms day ${day} ${lead.phone} ${sms.reason}`);
-      return { ok: false, skipped: true, reason: sms.reason, preview: sms.body };
+      const at = deps.now instanceof Date ? deps.now.toISOString() : new Date(deps.now || Date.now()).toISOString();
+      logLine(
+        deps,
+        'error',
+        `[outreach] skip sms day ${day} ${lead.phone} ${sms.reason}. Flagged. Not sent.`,
+      );
+      try {
+        await saveLead(lead.phone, {
+          smsFlag: {
+            day,
+            reason: sms.reason,
+            at,
+            septets: sms.septets ?? null,
+          },
+        }, deps.store);
+      } catch (err) {
+        logLine(deps, 'error', `[outreach] could not flag ${lead.phone} ${err.message}`);
+      }
+      return { ok: false, skipped: true, reason: sms.reason, preview: sms.body, flagged: true };
     }
     if (!outreachLive(env)) {
-      return { ok: true, dryRun: true, preview: sms.body };
+      return {
+        ok: true,
+        dryRun: true,
+        preview: sms.body,
+        variant: sms.variant,
+        septets: sms.septets,
+        segments: sms.segments,
+      };
     }
     const sent = await sendOutreachSms({
       to: lead.phone,
       body: sms.body,
+      maxSeptets: sms.maxSeptets,
       env,
       fetchImpl: deps.fetchImpl,
     });
-    return { ...sent, preview: sms.body };
+    return {
+      ...sent,
+      preview: sms.body,
+      variant: sms.variant,
+      septets: sms.septets,
+      segments: sms.segments,
+    };
   }
   if (channel === 'whatsapp') {
     const wa = renderWhatsapp(day, vars);
@@ -277,7 +320,7 @@ async function deliver({ channel, lead, day, env, deps }) {
       logLine(deps, 'error', `[outreach] skip whatsapp day ${day} ${lead.phone} ${wa.reason}`);
       return { ok: false, skipped: true, reason: wa.reason };
     }
-    const sid = contentSid(env, wa.contentSidEnv);
+    const sid = contentSid(env, wa);
     if (!sid) {
       logLine(
         deps,
@@ -354,8 +397,19 @@ async function sendStepForLead(lead, day, deps) {
   }
   if (!outreachLive(env) || delivered.dryRun) {
     const preview = typeof delivered.preview === 'string' ? delivered.preview : JSON.stringify(delivered.preview);
-    logLine(deps, 'log', `[outreach] dry run would send day ${day} ${fresh.channel} ${phone} ${preview}`);
-    return { phone, day, dryRun: true };
+    logLine(
+      deps,
+      'log',
+      `[outreach] dry run would send day ${day} ${fresh.channel} ${phone}${smsDetail(delivered)} ${preview}`,
+    );
+    return {
+      phone,
+      day,
+      dryRun: true,
+      variant: delivered.variant || null,
+      septets: delivered.septets ?? null,
+      segments: delivered.segments ?? null,
+    };
   }
   const again = await getLead(phone, store);
   if (!again || again.purchased === true || (again.sequence && again.sequence.status === 'stopped')) {
@@ -379,8 +433,21 @@ async function sendStepForLead(lead, day, deps) {
       nextTouchOn: finished ? null : nextDueOn(again.sequence.day0At || again.sequence.startedAt, sentDays({ sequence: { touches } })),
     },
   }, store);
-  logLine(deps, 'log', `[outreach] sent day ${day} ${fresh.channel} ${phone} ${touch.messageSid || ''} ${touch.status}`);
-  return { phone, day, id: touch.messageSid, status: touch.status, complete: finished };
+  logLine(
+    deps,
+    'log',
+    `[outreach] sent day ${day} ${fresh.channel} ${phone}${smsDetail(delivered)} ${touch.messageSid || ''} ${touch.status}`,
+  );
+  return {
+    phone,
+    day,
+    id: touch.messageSid,
+    status: touch.status,
+    complete: finished,
+    variant: delivered.variant || null,
+    septets: delivered.septets ?? null,
+    segments: delivered.segments ?? null,
+  };
 }
 
 export async function runOutreachDay(deps = {}) {

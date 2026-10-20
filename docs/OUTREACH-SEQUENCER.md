@@ -4,7 +4,16 @@ Day 0, Day 3, and Day 10 use the same steps on SMS, WhatsApp, and email. Day 0 i
 
 The sequence stops only when that Netlify site has been bought (the £299 one-off or the £39/month subscription) or when Nathan stops it by hand. A reply, including STOP or "not interested", does not stop the sequence and is not added to a suppression list. The reply is stored, `optedOut` is set when the text is a stop or not-interested phrase, and Nathan is still notified. Twilio itself may refuse a later SMS to a number that texted STOP. That error is logged and the job continues with the next lead. The step is not recorded as sent.
 
-Copy is placeholder text in `config/outreach-copy.json` with `{business}` and `{link}`. Replace it before anyone turns sending on. The code refuses an em dash, refuses an opt-out line such as "STOP to opt out", and does not append one. SMS must render to 159 GSM-7 septets or fewer, including the business name and the link. A longer or non-GSM-7 SMS is not sent.
+Day 0 email and WhatsApp use the approved `tm_website_preview_v2` wording, with `{business}` as the name and `{link}` as the full preview URL. The email subject is `A website for {business}`. Day 3 and Day 10 are still placeholder text in `config/outreach-copy.json`. The code refuses an em dash in email and WhatsApp copy, refuses an opt-out line such as "STOP to opt out", and does not append one.
+
+Day 0 SMS tries the variants in `smsVariants`, in order. The link in SMS has `https://` or `http://` and any trailing slash removed. Email and WhatsApp keep the full URL. Curly quotes and accented letters fold to close ASCII (a curly apostrophe becomes `'`, `é` becomes `e`). A character with no ASCII equivalent is left in place, that variant fails the GSM-7 check, and the next variant is tried. Characters are not dropped.
+
+- a, b, and c must be 159 GSM-7 septets or fewer (one segment).
+- d is the full Day 0 message, with the business name and the stripped link, when it fits in 306 septets (two concatenated segments).
+- e is that same full message with `Hey there` in place of the business name, when d is over 306 and e still fits in 306.
+- 159 septets or fewer counts as 1 segment. 160 to 306 counts as 2. Extension-table characters count as 2 septets. Over 306, or still not GSM-7 after e, is not sent. The lead is flagged (`smsFlag`) and the error is logged. The step is not recorded as sent, and the run continues with the next lead.
+
+Day 3 and Day 10 SMS stay at 159 septets. A Day 3 or Day 10 length problem does not block enrolment. That step is skipped and logged when it comes due.
 
 `OUTREACH_SEND_LIVE=1` sends. Any other value logs the would-be send and records nothing as sent. While the switch is off, enrolment logs Day 0, and the 10-minute job logs Day 0 again each run because nothing was stored.
 
@@ -54,7 +63,7 @@ curl -sS -X POST https://taylor-marriott.com/api/outreach-enrol \
 
 ## Status
 
-`GET /api/outreach-status` with the same header. Read only. Each row has `step` (last day sent, or null), `nextDueOn`, `replied`, `optedOut`, `purchased`, `stopped`, and `complete`.
+`GET /api/outreach-status` with the same header. Read only. Each row has `step` (last day sent, or null), `nextDueOn`, `replied`, `optedOut`, `purchased`, `stopped`, `complete`, and `smsFlag` when a Day 0 SMS could not be sent.
 
 ## Purchase
 
@@ -66,7 +75,7 @@ SMS: Twilio `Messages.json` with `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and 
 
 WhatsApp: the same endpoint with `ContentSid` and `ContentVariables`. There is no free-form `Body`, because Day 0 uses the approved template `tm_website_preview_v2` and Day 3 and Day 10 are outside the 24 hour window.
 
-Twilio's Content API takes the template SID (`HX...`) plus a JSON object whose keys are the template slots `{{1}}`, `{{2}}`, and so on. This repo does not store the live ContentSid. Set it in the env vars below. The slot map in `config/outreach-copy.json` sends `{{1}}` as the business name and `{{2}}` as the preview URL for `tm_website_preview_v2`. Change that map if the approved template uses different slots. If a step's ContentSid is unset, that step is skipped and logged. The lead is not marked sent, so a later run can send once the SID is set.
+Twilio's Content API takes the template SID (`HX...`) plus a JSON object whose keys are the template slots `{{1}}`, `{{2}}`, and so on. Day 0 sends `ContentSid` `HXb468c7193bf6dcd4ac1f48dbe06c46c6` from `config/outreach-copy.json` when `WHATSAPP_CONTENT_SID_DAY0` is unset. Setting that env var overrides the config value. The slot map sends `{{1}}` as the business name and `{{2}}` as the full preview URL for `tm_website_preview_v2`. There is no free-form WhatsApp body. Day 3 and Day 10 have no ContentSid in config. If their env var is unset, that step is skipped and logged. The lead is not marked sent, so a later run can send once the SID is set.
 
 WhatsApp sends also stop at 250 in a London day, even if `OUTREACH_DAILY_CAP` is higher. SMS and email continue under the overall cap.
 
@@ -76,8 +85,8 @@ Email: the existing Gmail mailer, from `nathan@taylor-marriott.com`. Gmail OAuth
 
 Do this in Netlify site settings, then redeploy production. This repo does not change env vars or the Twilio number, sender, or webhooks.
 
-1. Replace the placeholder strings in `config/outreach-copy.json`. Keep `{business}` and `{link}`. Keep each SMS at or under 159 GSM-7 septets for the longest business name and preview link you will enrol. Use a short preview link. No em dash. No "STOP to opt out" or similar.
-2. For WhatsApp, confirm `whatsappVariables` match the approved templates. Put the ContentSids in the env vars below. Day 3 and Day 10 need their own approved templates.
+1. Day 0 copy is already the approved wording. Day 3 and Day 10 in `config/outreach-copy.json` are still placeholders. Replace those before sending them. Keep `{business}` and `{link}`. No em dash. No "STOP to opt out" or similar. Day 0 SMS picks a shorter variant, then the full message, on its own.
+2. For WhatsApp, confirm `whatsappVariables` match the approved templates. Day 0 already has ContentSid `HXb468c7193bf6dcd4ac1f48dbe06c46c6`. Day 3 and Day 10 need their own approved templates and env ContentSids.
 3. Set `OUTREACH_ADMIN_SECRET` to a long random value. Enrol, stop, and status stay closed until this is set.
 4. Leave `OUTREACH_SEND_LIVE` unset, enrol one test lead, and read the dry-run log. The log shows the rendered Day 0 text. Nothing is stored as sent.
 5. Set `OUTREACH_DAILY_CAP` if 20 sends per London day is wrong.
@@ -88,7 +97,7 @@ Do this in Netlify site settings, then redeploy production. This repo does not c
 | `OUTREACH_ADMIN_SECRET` | Shared secret header for enrol, stop, and status. Required. Unset fails closed. |
 | `OUTREACH_SEND_LIVE` | `1` sends. Anything else, including unset, logs only and records nothing as sent. |
 | `OUTREACH_DAILY_CAP` | Max sends per London day. Default 20. |
-| `WHATSAPP_CONTENT_SID_DAY0` | ContentSid for `tm_website_preview_v2`. |
+| `WHATSAPP_CONTENT_SID_DAY0` | Optional override for `tm_website_preview_v2`. Unset uses `HXb468c7193bf6dcd4ac1f48dbe06c46c6` from config. |
 | `WHATSAPP_CONTENT_SID_DAY3` | ContentSid for the Day 3 template. Unset skips that WhatsApp step. |
 | `WHATSAPP_CONTENT_SID_DAY10` | ContentSid for the Day 10 template. Unset skips that WhatsApp step. |
 | `TWILIO_ACCOUNT_SID` | Twilio account for SMS and WhatsApp. |

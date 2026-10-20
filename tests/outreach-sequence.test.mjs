@@ -19,8 +19,11 @@ import {
   daysBetween,
   dueStep,
   londonDate,
+  renderEmail,
+  renderSms,
   WHATSAPP_DAILY_LIMIT,
 } from '../shared/outreach-sequence.js';
+import { assertSmsBody } from '../shared/sms-gsm.js';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const SECRET = 'test-outreach-secret';
@@ -213,9 +216,14 @@ test('enrol refuses a missing preview and a second enrol, and a reply does not b
   assert.equal(again.json.error, 'already_enrolled');
 
   const longName = await enrol(store(), enrolBody({ businessName: 'A'.repeat(150) }));
-  assert.equal(longName.json.error, 'too-long');
+  assert.equal(longName.res.status, 200);
+  assert.equal(longName.json.day0.variant, 'e');
+  assert.equal(longName.json.day0.septets, 274);
+  assert.equal(longName.json.day0.segments, 2);
   const emoji = await enrol(store(), enrolBody({ businessName: 'Hello \u{1F600}' }));
-  assert.equal(emoji.json.error, 'not-gsm7');
+  assert.equal(emoji.res.status, 200);
+  assert.equal(emoji.json.day0.variant, 'e');
+  assert.equal(emoji.json.day0.segments, 2);
 });
 
 test('dry run logs the SMS and records nothing; live sends once', async () => {
@@ -234,6 +242,7 @@ test('dry run logs the SMS and records nothing; live sends once', async () => {
   assert.equal(calls.length, 0);
   assert.equal((await getLead(PHONE, leads)).sequence.touches.length, 0);
   assert.match(logs.join('\n'), /dry run would send day 0 sms/);
+  assert.match(logs.join('\n'), /variant a 156 septets 1 segment/);
   assert.equal(/stop to opt out/i.test(logs.join('\n')), false);
 
   const liveCalls = [];
@@ -249,7 +258,12 @@ test('dry run logs the SMS and records nothing; live sends once', async () => {
   assert.equal(params.get('To'), PHONE);
   assert.equal(params.get('From'), '+447378961404');
   assert.equal(params.has('ContentSid'), false);
-  assert.match(params.get('Body'), /PLACEHOLDER day 0 preview Example Plumbing/);
+  const expectedSms = renderSms(0, { business: 'Example Plumbing', link: LINK });
+  assert.equal(expectedSms.variant, 'a');
+  assert.equal(expectedSms.septets, 156);
+  assert.equal(expectedSms.segments, 1);
+  assert.equal(params.get('Body'), expectedSms.body);
+  assert.equal(params.get('Body').includes('https://'), false);
   assert.equal(/stop to opt out/i.test(params.get('Body')), false);
   const lead = await getLead(PHONE, leads);
   assert.equal(lead.sequence.touches.length, 1);
@@ -388,34 +402,22 @@ test('daily cap stops the third lead and a rerun does not exceed it', async () =
   assert.equal((await getLead(phones[2], leads)).sequence.touches.length, 0);
 });
 
-test('WhatsApp uses the Content template and skips when the SID is unset', async () => {
+test('WhatsApp Day 0 uses the config ContentSid and Day 3 still skips when unset', async () => {
   const refused = await enrol(store(), enrolBody({ channel: 'whatsapp', businessName: 'Cafe \u2014 Bros' }));
   assert.equal(refused.json.error, 'em-dash');
 
   const open = store();
   await enrol(open, enrolBody({ channel: 'whatsapp' }), { now: '2026-01-15T10:00:00.000Z' });
-  const logs = [];
   const calls = [];
   await runOutreachDay({
     env: liveEnv,
     store: open,
     now: new Date('2026-01-15T10:00:00.000Z'),
     fetchImpl: twilioFetch(calls),
-    log: (line) => logs.push(line),
   });
-  assert.equal(calls.length, 0);
-  assert.match(logs.join('\n'), /WHATSAPP_CONTENT_SID_DAY0 is not set \(template tm_website_preview_v2\)/);
-  assert.equal((await getLead(PHONE, open)).sequence.touches.length, 0);
-
-  const sent = [];
-  await runOutreachDay({
-    env: { ...liveEnv, WHATSAPP_CONTENT_SID_DAY0: 'HXday0preview' },
-    store: open,
-    now: new Date('2026-01-15T10:00:00.000Z'),
-    fetchImpl: twilioFetch(sent),
-  });
-  const params = new URLSearchParams(sent[0].body);
-  assert.equal(params.get('ContentSid'), 'HXday0preview');
+  assert.equal(calls.length, 1);
+  const params = new URLSearchParams(calls[0].body);
+  assert.equal(params.get('ContentSid'), 'HXb468c7193bf6dcd4ac1f48dbe06c46c6');
   assert.equal(params.get('To'), `whatsapp:${PHONE}`);
   assert.equal(params.get('From'), 'whatsapp:+447378961404');
   assert.equal(params.has('Body'), false);
@@ -423,6 +425,20 @@ test('WhatsApp uses the Content template and skips when the SID is unset', async
     1: 'Example Plumbing',
     2: LINK,
   });
+  assert.equal((await getLead(PHONE, open)).sequence.touches.length, 1);
+
+  const override = store();
+  await enrol(override, enrolBody({ channel: 'whatsapp', phone: '+447911000040', site_id: 'wa-override' }), {
+    now: '2026-01-15T10:00:00.000Z',
+  });
+  const overridden = [];
+  await runOutreachDay({
+    env: { ...liveEnv, WHATSAPP_CONTENT_SID_DAY0: 'HXday0preview' },
+    store: override,
+    now: new Date('2026-01-15T10:00:00.000Z'),
+    fetchImpl: twilioFetch(overridden),
+  });
+  assert.equal(new URLSearchParams(overridden[0].body).get('ContentSid'), 'HXday0preview');
 
   const later = [];
   const day3logs = [];
@@ -485,8 +501,12 @@ test('email goes through the Gmail mailer and dry run does not call it', async (
   });
   assert.equal(sent.length, 1);
   assert.equal(sent[0].to, 'owner@example.co.uk');
-  assert.match(sent[0].subject, /PLACEHOLDER preview for Example Plumbing/);
-  assert.match(sent[0].text, /PLACEHOLDER day 0/);
+  const email = renderEmail(0, { business: 'Example Plumbing', link: LINK });
+  assert.equal(email.subject, 'A website for Example Plumbing');
+  assert.equal(sent[0].subject, email.subject);
+  assert.equal(sent[0].text, email.text);
+  assert.match(sent[0].text, /Hey Example Plumbing\n\nNathan here, I've built a website specifically for your business!/);
+  assert.equal(sent[0].text.includes(LINK), true);
   assert.equal(/stop to opt out/i.test(sent[0].text), false);
   const lead = await getLead(PHONE, leads);
   assert.equal(lead.sequence.touches[0].messageSid, 'gmail-abc');
@@ -595,4 +615,173 @@ test('status lists step, next due date, and stop flags', async () => {
   assert.equal(body.leads[0].replied, false);
   assert.equal(body.leads[0].suppressed, false);
   assert.equal(body.leads[0].complete, false);
+  assert.equal(body.leads[0].smsFlag, null);
+});
+
+test('Day 0 SMS fallback reports variant, length, and segment count', () => {
+  assert.throws(() => assertSmsBody('A'.repeat(200)), (err) => err.code === 'SMS_TOO_LONG');
+
+  const rivet = renderSms(0, {
+    business: 'Rivet Plumbing',
+    link: 'https://rivet-plumbing.netlify.app',
+  });
+  assert.equal(rivet.ok, true);
+  assert.equal(rivet.variant, 'a');
+  assert.equal(rivet.septets, 150);
+  assert.equal(rivet.segments, 1);
+  assert.equal(
+    rivet.body,
+    "Hey Rivet Plumbing, Nathan here. I've built a website for your business! rivet-plumbing.netlify.app Let me know what you think? Happy to make changes.",
+  );
+
+  const variantB = renderSms(0, {
+    business: 'Rivet Plumbing',
+    link: `https://${'b'.repeat(36)}`,
+  });
+  assert.equal(variantB.variant, 'b');
+  assert.equal(variantB.septets, 153);
+  assert.equal(variantB.segments, 1);
+  assert.match(variantB.body, /^Hey Rivet Plumbing, Nathan here, I've built a website for your business! b{36} Take a look/);
+
+  const variantC = renderSms(0, {
+    business: 'Rivet Plumbing',
+    link: `https://${'c'.repeat(43)}`,
+  });
+  assert.equal(variantC.variant, 'c');
+  assert.equal(variantC.septets, 157);
+  assert.equal(variantC.segments, 1);
+  assert.match(variantC.body, /specifically for your business! c{43} Let me know/);
+
+  const variantD = renderSms(0, {
+    business: 'Rivet Plumbing',
+    link: `https://${'d'.repeat(46)}/`,
+  });
+  assert.equal(variantD.variant, 'd');
+  assert.equal(variantD.septets, 299);
+  assert.equal(variantD.segments, 2);
+  assert.match(variantD.body, /^Hey Rivet Plumbing\n\nNathan here, I've built a website specifically for your business!\n\nd{46}\n/);
+  assert.equal(variantD.body.includes('https://'), false);
+  assert.equal(variantD.body.endsWith('www.taylor-marriott.com'), true);
+
+  const host = 'https://preview.example.com/';
+  const link45 = host + 'x'.repeat(45 - host.length);
+  assert.equal(link45.length, 45);
+  const name40 = 'A'.repeat(40);
+  const mid = renderSms(0, { business: name40, link: link45 });
+  assert.equal(mid.variant, 'e');
+  assert.equal(mid.septets, 281);
+  assert.equal(mid.segments, 2);
+  assert.match(mid.body, /^Hey there\n\nNathan here/);
+  assert.equal(mid.body.includes(name40), false);
+  assert.equal(mid.body.includes('preview.example.com/xxxxxxxxxxxxxxxxx'), true);
+
+  const name70 = 'B'.repeat(70);
+  const longName = renderSms(0, {
+    business: name70,
+    link: 'https://rivet-plumbing.netlify.app',
+  });
+  assert.equal(longName.variant, 'e');
+  assert.equal(longName.septets, 270);
+  assert.equal(longName.segments, 2);
+  assert.match(longName.body, /^Hey there\n\nNathan here, I've built a website specifically for your business!\n\nrivet-plumbing.netlify.app\n/);
+  assert.equal(longName.body.includes(name70), false);
+
+  const folded = renderSms(0, {
+    business: 'Caf\u00e9 O\u2019Brien',
+    link: 'https://rivet-plumbing.netlify.app/',
+  });
+  assert.equal(folded.variant, 'a');
+  assert.equal(folded.segments, 1);
+  assert.match(folded.body, /Hey Cafe O'Brien, Nathan here/);
+  assert.equal(folded.body.includes('\u00e9'), false);
+  assert.equal(folded.body.includes('\u2019'), false);
+  assert.equal(folded.body.includes('rivet-plumbing.netlify.app'), true);
+  assert.equal(folded.body.endsWith('/'), false);
+
+  const emoji = renderSms(0, {
+    business: 'Hello \u{1F600}',
+    link: 'https://rivet-plumbing.netlify.app',
+  });
+  assert.equal(emoji.ok, true);
+  assert.equal(emoji.variant, 'e');
+  assert.equal(emoji.segments, 2);
+  assert.equal(emoji.body.includes('\u{1F600}'), false);
+
+  const badLink = renderSms(0, {
+    business: 'Rivet Plumbing',
+    link: 'https://example.com/\u{1F600}',
+  });
+  assert.equal(badLink.ok, false);
+  assert.equal(badLink.reason, 'not-gsm7');
+  assert.equal(badLink.variant, null);
+
+  const huge = renderSms(0, {
+    business: 'Rivet Plumbing',
+    link: `https://${'z'.repeat(80)}`,
+  });
+  assert.equal(huge.ok, false);
+  assert.equal(huge.reason, 'too-long');
+  assert.equal(huge.segments, null);
+});
+
+test('an SMS that cannot fit is flagged and the next lead still sends', async () => {
+  const leads = store();
+  const calls = [];
+  const logs = [];
+  const blocked = await handleOutreachEnrol(enrolRequest(enrolBody({
+    phone: '+447911000031',
+    previewUrl: `https://${'z'.repeat(80)}`,
+    site_id: 'huge-site',
+    place_id: 'ChIJhuge',
+  })), {
+    env: liveEnv,
+    store: leads,
+    now: () => new Date('2026-01-15T10:00:00.000Z'),
+    fetchImpl: twilioFetch(calls),
+    log: (line) => logs.push(line),
+  });
+  const blockedJson = await blocked.json();
+  assert.equal(blocked.status, 200);
+  assert.equal(blockedJson.day0.skipped, 'too-long');
+  assert.equal(calls.length, 0);
+  const flagged = await getLead('+447911000031', leads);
+  assert.equal(flagged.sequence.touches.length, 0);
+  assert.equal(flagged.sequence.status, 'active');
+  assert.equal(flagged.smsFlag.day, 0);
+  assert.equal(flagged.smsFlag.reason, 'too-long');
+  assert.match(logs.join('\n'), /Flagged\. Not sent/);
+
+  const host = 'https://preview.example.com/';
+  const link45 = host + 'x'.repeat(45 - host.length);
+  const next = await handleOutreachEnrol(enrolRequest(enrolBody({
+    phone: '+447911000032',
+    site_id: 'next-site',
+    place_id: 'ChIJnext',
+    businessName: 'A'.repeat(40),
+    previewUrl: link45,
+  })), {
+    env: liveEnv,
+    store: leads,
+    now: () => new Date('2026-01-15T10:05:00.000Z'),
+    fetchImpl: twilioFetch(calls),
+  });
+  const nextJson = await next.json();
+  assert.equal(next.status, 200);
+  assert.equal(nextJson.day0.variant, 'e');
+  assert.equal(nextJson.day0.septets, 281);
+  assert.equal(nextJson.day0.segments, 2);
+  assert.equal(calls.length, 1);
+  const params = new URLSearchParams(calls[0].body);
+  assert.match(params.get('Body'), /^Hey there\n/);
+  assert.equal(params.get('Body').includes('https://'), false);
+  assert.equal((await getLead('+447911000032', leads)).sequence.touches.length, 1);
+  assert.equal((await getLead('+447911000031', leads)).sequence.touches.length, 0);
+
+  const status = await handleOutreachStatus(new Request('https://taylor-marriott.com/api/outreach-status', {
+    headers: { 'x-outreach-admin-secret': SECRET },
+  }), { env: { OUTREACH_ADMIN_SECRET: SECRET }, store: leads });
+  const rows = await status.json();
+  const flaggedRow = rows.leads.find((row) => row.phone === '+447911000031');
+  assert.equal(flaggedRow.smsFlag.reason, 'too-long');
+  assert.equal(flaggedRow.step, null);
 });

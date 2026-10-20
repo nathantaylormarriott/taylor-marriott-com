@@ -1,20 +1,69 @@
 /**
  * Channel senders for the outreach sequence.
- * SMS uses the Twilio messages API. WhatsApp uses an approved Content template
- * (ContentSid + ContentVariables). Day 3 and Day 10 are outside the 24 hour
- * window, so they are templates too. Email uses the Gmail mailer.
+ * SMS uses the Twilio messages API. Day 0 may be two concatenated GSM-7
+ * segments (306 septets). Day 3 and Day 10 stay at 159, enforced before this
+ * call. Billing SMS is unchanged and still refuses anything over 159.
+ * WhatsApp uses an approved Content template (ContentSid + ContentVariables).
+ * Day 3 and Day 10 are outside the 24 hour window, so they are templates too.
+ * Email uses the Gmail mailer.
  * Do not append an opt-out line. Twilio still handles SMS STOP on its side.
  */
-import { sendBillingSms } from './billing-sms.js';
+import { gsmSeptetLength } from '../../../shared/sms-gsm.js';
+import { SMS_TWO_SEGMENT_LIMIT } from '../../../shared/outreach-sequence.js';
 import { TWILIO_FROM_E164, NATHAN_EMAIL } from './billing-notify.js';
 import { mailConfig, sendMail } from './mailer.js';
 import { toE164 } from './inbound-store.js';
 
 export const OUTREACH_FROM_EMAIL = NATHAN_EMAIL;
 
-export async function sendOutreachSms({ to, body, env, fetchImpl }) {
-  const result = await sendBillingSms({ to, body, env, fetchImpl });
-  return { ok: true, id: result.sid || null, status: result.status || 'sent', channel: 'sms' };
+export async function sendOutreachSms({ to, body, env, fetchImpl, maxSeptets = SMS_TWO_SEGMENT_LIMIT }) {
+  const text = String(body ?? '');
+  const septets = gsmSeptetLength(text);
+  if (septets == null) {
+    const err = new Error('SMS is not GSM-7. Not sent.');
+    err.code = 'SMS_NOT_GSM7';
+    throw err;
+  }
+  const limit = maxSeptets || SMS_TWO_SEGMENT_LIMIT;
+  if (septets > limit) {
+    const err = new Error(`SMS is ${septets} septets. Limit is ${limit}. Not sent.`);
+    err.code = 'SMS_TOO_LONG';
+    throw err;
+  }
+  const sid = env.TWILIO_ACCOUNT_SID;
+  const token = env.TWILIO_AUTH_TOKEN;
+  const from = env.TWILIO_FROM_NUMBER || TWILIO_FROM_E164;
+  if (!sid || !token) {
+    const err = new Error('Twilio is not configured. SMS not sent.');
+    err.code = 'NO_TWILIO';
+    throw err;
+  }
+  if (!to) {
+    const err = new Error('No mobile number. SMS not sent.');
+    err.code = 'NO_PHONE';
+    throw err;
+  }
+  const auth = Buffer.from(`${sid}:${token}`).toString('base64');
+  const fetchFn = fetchImpl || fetch;
+  const res = await fetchFn(
+    `https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(sid)}/Messages.json`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${auth}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({ To: to, From: from, Body: text }).toString(),
+    },
+  );
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const err = new Error(data.message || `Twilio ${res.status}`);
+    err.code = 'TWILIO';
+    err.twilioCode = data.code || null;
+    throw err;
+  }
+  return { ok: true, id: data.sid || null, status: data.status || 'sent', channel: 'sms' };
 }
 
 export async function sendOutreachWhatsapp({ to, contentSid, variables, env, fetchImpl }) {
