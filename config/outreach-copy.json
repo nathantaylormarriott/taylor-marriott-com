@@ -1,0 +1,41 @@
+{
+  "notice": "PLACEHOLDER COPY. Not final. Replace this file before OUTREACH_SEND_LIVE=1. Do not add an opt-out line.",
+  "steps": [
+    {
+      "day": 0,
+      "sms": "PLACEHOLDER day 0 preview {business} {link}",
+      "emailSubject": "PLACEHOLDER preview for {business}",
+      "emailText": "PLACEHOLDER day 0. Preview for {business}: {link}",
+      "whatsappTemplate": "tm_website_preview_v2",
+      "whatsappContentSidEnv": "WHATSAPP_CONTENT_SID_DAY0",
+      "whatsappVariables": {
+        "1": "{business}",
+        "2": "{link}"
+      }
+    },
+    {
+      "day": 3,
+      "sms": "PLACEHOLDER day 3 nudge {business} {link}",
+      "emailSubject": "PLACEHOLDER nudge for {business}",
+      "emailText": "PLACEHOLDER day 3. Nudge for {business}: {link}",
+      "whatsappTemplate": "PLACEHOLDER day 3 template",
+      "whatsappContentSidEnv": "WHATSAPP_CONTENT_SID_DAY3",
+      "whatsappVariables": {
+        "1": "{business}",
+        "2": "{link}"
+      }
+    },
+    {
+      "day": 10,
+      "sms": "PLACEHOLDER preview coming down soon {business} {link}",
+      "emailSubject": "PLACEHOLDER preview coming down soon for {business}",
+      "emailText": "PLACEHOLDER day 10. Preview coming down soon for {business}: {link}",
+      "whatsappTemplate": "PLACEHOLDER day 10 template",
+      "whatsappContentSidEnv": "WHATSAPP_CONTENT_SID_DAY10",
+      "whatsappVariables": {
+        "1": "{business}",
+        "2": "{link}"
+      }
+    }
+  ]
+}

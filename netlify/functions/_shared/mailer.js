@@ -96,11 +96,11 @@ async function sendViaGmail(msg, cfg, opts = {}) {
   const gmail = google.gmail({ version: 'v1', auth: oauth2 });
   const raw = buildRawEmail(msg, cfg);
   try {
-    await gmail.users.messages.send({
+    const sent = await gmail.users.messages.send({
       userId: 'me',
       requestBody: { raw },
     });
-    return { ok: true, provider: 'gmail' };
+    return { ok: true, provider: 'gmail', id: (sent && sent.data && sent.data.id) || null };
   } catch (err) {
     console.error('[mailer] Gmail API error', err.message);
     return { ok: false, error: err.message, skipped: false, provider: 'gmail' };

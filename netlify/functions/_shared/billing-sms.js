@@ -36,5 +36,5 @@ export async function sendBillingSms({ to, body, env = process.env, fetchImpl = 
     err.code = 'TWILIO';
     throw err;
   }
-  return { sid: data.sid || null, to, from };
+  return { sid: data.sid || null, status: data.status || 'sent', to, from };
 }
